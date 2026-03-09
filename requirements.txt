@@ -11,3 +11,4 @@ google-generativeai
 pypdf
 requests
 sentence-transformers
+python-multipart
