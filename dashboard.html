@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Admin - TUIASI Chatbot</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h1, h2, h3 { color: #004b87; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+        .tab-btn { padding: 10px 20px; background: #eee; border: none; cursor: pointer; font-weight: bold; border-radius: 5px; }
+        .tab-btn.active { background: #004b87; color: white; }
+        .section { display: none; }
+        .section.active { display: block; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #004b87; color: white; }
+        .form-group { margin-bottom: 15px; display: flex; gap: 10px; align-items: center; }
+        input[type="text"], input[type="file"] { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        button.action-btn { background: #28a745; color: white; padding: 8px 15px; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        button.action-btn:hover { background: #218838; }
+        button.reindex-btn { background: #dc3545; color: white; padding: 15px 20px; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; width: 100%; font-size: 16px;}
+        button.reindex-btn:hover { background: #c82333; }
+        button.delete-btn { background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; width: 100%; }
+        button.delete-btn:hover { background: #c82333; }
+        hr { border-top: 1px solid #ddd; margin: 30px 0; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Panou de Administrare Chatbot</h1>
+    
+    <div class="tabs">
+        <button class="tab-btn active" onclick="showSection('istoric')">Istoric Conversatii</button>
+        <button class="tab-btn" onclick="showSection('reguli')">Reguli Fixe (Rule-Based)</button>
+        <button class="tab-btn" onclick="showSection('surse')">Surse AI (RAG)</button>
+    </div>
+
+    <div id="istoric" class="section active">
+        <h2>Ultimele 50 de conversatii</h2>
+        <button class="action-btn" onclick="incarcaIstoric()">Actualizeaza Tabelul</button>
+        <table>
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Intrebare Utilizator</th>
+                    <th>Raspuns Chatbot</th>
+                    <th>Sursa</th>
+                </tr>
+            </thead>
+            <tbody id="tabel-istoric"></tbody>
+        </table>
+    </div>
+
+    <div id="reguli" class="section">
+        <h2>Adauga o regula noua</h2>
+        <div class="form-group">
+            <input type="text" id="new-keyword" placeholder="Cuvant cheie (ex: numar de telefon)">
+            <input type="text" id="new-response" placeholder="Raspunsul fix dorit...">
+            <button class="action-btn" onclick="adaugaRegula()">Adauga Regula</button>
+        </div>
+        <h2>Reguli active in baza de date</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Cuvant Cheie</th>
+                    <th>Raspuns Predefinit</th>
+                    <th style="width: 80px;">Actiuni</th>
+                </tr>
+            </thead>
+            <tbody id="tabel-reguli"></tbody>
+        </table>
+    </div>
+
+    <div id="surse" class="section">
+        
+        <h2>1. Documente PDF (Regulamente / Ghiduri)</h2>
+        <div class="form-group">
+            <input type="file" id="pdf-upload" accept="application/pdf">
+            <button class="action-btn" onclick="incarcaPDF()">Incarca PDF in sistem</button>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Nume Fisier PDF (din folderul 'date')</th>
+                    <th style="width: 80px;">Actiuni</th>
+                </tr>
+            </thead>
+            <tbody id="tabel-documente"></tbody>
+        </table>
+
+        <hr>
+
+        <h2>2. Link-uri Web Scanate</h2>
+        <div class="form-group">
+            <input type="text" id="new-link" placeholder="https://admitere.tuiasi.ro/nou...">
+            <button class="action-btn" onclick="adaugaLink()">Adauga Link</button>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Tip</th>
+                    <th>Adresa Web (URL)</th>
+                    <th style="width: 80px;">Actiuni</th>
+                </tr>
+            </thead>
+            <tbody id="tabel-surse"></tbody>
+        </table>
+
+        <hr>
+
+        <h2>3. Actualizare Inteligenta Artificiala</h2>
+        <p><i>Atentie: Orice modificare de mai sus (adaugare/stergere PDF sau Link) NU se va aplica pana nu apesi acest buton! Procesul va dura cateva secunde.</i></p>
+        <button class="reindex-btn" onclick="reindexeazaAI()">RE-INDEXEAZA BAZA DE DATE AI</button>
+        <p id="reindex-status" style="text-align: center; color: red; font-weight: bold; margin-top: 15px; font-size: 18px;"></p>
+        
+    </div>
+</div>
+
+<script>
+    function showSection(id) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        event.target.classList.add('active');
+
+        if(id === 'istoric') incarcaIstoric();
+        if(id === 'reguli') incarcaReguli();
+        if(id === 'surse') {
+            incarcaSurse();
+            incarcaDocumente();
+        }
+    }
+
+    // --- ISTORIC ---
+    async function incarcaIstoric() {
+        try {
+            const res = await fetch('/logs');
+            const data = await res.json();
+            const tbody = document.getElementById('tabel-istoric');
+            tbody.innerHTML = '';
+            data.istoric_conversatii.forEach(row => {
+                tbody.innerHTML += `<tr><td>${row.data}</td><td>${row.intrebare_utilizator}</td><td>${row.raspuns_bot}</td><td>${row.sursa}</td></tr>`;
+            });
+        } catch(e) { console.error("Eroare incarcare istoric", e); }
+    }
+
+    // --- REGULI FIXE ---
+    async function incarcaReguli() {
+        const res = await fetch('/api/rules');
+        const rules = await res.json();
+        const tbody = document.getElementById('tabel-reguli');
+        tbody.innerHTML = '';
+        rules.forEach(r => {
+            tbody.innerHTML += `<tr>
+                <td>${r.keyword}</td>
+                <td>${r.response}</td>
+                <td><button class="delete-btn" onclick="stergeRegula(${r.id})">Sterge</button></td>
+            </tr>`;
+        });
+    }
+
+    async function adaugaRegula() {
+        const keyword = document.getElementById('new-keyword').value;
+        const response = document.getElementById('new-response').value;
+        if (!keyword || !response) return alert("Completeaza ambele campuri!");
+
+        await fetch('/api/rules', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ keyword: keyword, response: response })
+        });
+        document.getElementById('new-keyword').value = '';
+        document.getElementById('new-response').value = '';
+        incarcaReguli();
+    }
+
+    async function stergeRegula(id) {
+        if(!confirm("Sigur vrei sa stergi aceasta regula?")) return;
+        await fetch(`/api/rules/${id}`, { method: 'DELETE' });
+        incarcaReguli();
+    }
+
+    // --- DOCUMENTE PDF ---
+    async function incarcaDocumente() {
+        const res = await fetch('/api/documents');
+        const docs = await res.json();
+        const tbody = document.getElementById('tabel-documente');
+        tbody.innerHTML = '';
+        docs.forEach(d => {
+            tbody.innerHTML += `<tr>
+                <td>${d.filename}</td>
+                <td><button class="delete-btn" onclick="stergeDocument('${d.filename}')">Sterge</button></td>
+            </tr>`;
+        });
+    }
+
+    async function incarcaPDF() {
+        const fileInput = document.getElementById('pdf-upload');
+        if (fileInput.files.length === 0) return alert("Selecteaza un fisier PDF mai intai!");
+        
+        const formData = new FormData();
+        formData.append("file", fileInput.files[0]);
+        
+        try {
+            const res = await fetch('/api/upload-pdf', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            
+            if(data.status === "success") {
+                alert("Fisierul " + data.filename + " a fost incarcat cu succes! \nNu uita sa apesi butonul RE-INDEXARE jos!");
+                fileInput.value = ""; 
+                incarcaDocumente(); 
+            } else {
+                alert("Eroare la incarcare.");
+            }
+        } catch (e) {
+            alert("Eroare de conexiune cu serverul.");
+        }
+    }
+
+    async function stergeDocument(filename) {
+        if(!confirm(`Sigur vrei sa stergi fisierul ${filename}?`)) return;
+        await fetch(`/api/documents/${filename}`, { method: 'DELETE' });
+        incarcaDocumente(); 
+    }
+
+   // --- LINK-URI WEB ---
+    async function incarcaSurse() {
+        const res = await fetch('/api/weblinks');
+        const links = await res.json();
+        const tbody = document.getElementById('tabel-surse');
+        tbody.innerHTML = '';
+        links.forEach(l => {
+            tbody.innerHTML += `<tr>
+                <td>${l.type}</td>
+                <td>${l.path}</td>
+                <td><button class="delete-btn" onclick="stergeLink(${l.id})">Sterge</button></td>
+            </tr>`;
+        });
+    }
+
+    async function adaugaLink() {
+        const path = document.getElementById('new-link').value;
+        if (!path) return alert("Introdu un link!");
+
+        await fetch('/api/weblinks', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ path: path })
+        });
+        document.getElementById('new-link').value = '';
+        incarcaSurse();
+    }
+
+    async function stergeLink(id) {
+        if(!confirm("Sigur vrei sa stergi acest link?")) return;
+        await fetch(`/api/weblinks/${id}`, { method: 'DELETE' });
+        incarcaSurse();
+    }
+
+    // --- RE-INDEXARE AI ---
+    async function reindexeazaAI() {
+        const statusText = document.getElementById('reindex-status');
+        statusText.innerText = "Se re-indexeaza documentele (poate dura intre 10 si 30 de secunde)...";
+        statusText.style.color = "orange";
+        try {
+            const res = await fetch('/api/reindex', { method: 'POST' });
+            const data = await res.json();
+            statusText.innerText = data.status;
+            statusText.style.color = "green";
+        } catch (e) {
+            statusText.innerText = "Eroare la re-indexare. Verifica consola serverului.";
+            statusText.style.color = "red";
+        }
+    }
+
+    incarcaIstoric();
+</script>
+
+</body>
+</html>

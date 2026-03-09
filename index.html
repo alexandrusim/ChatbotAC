@@ -24,7 +24,7 @@
 <div id="chat-container">
     <div id="chat-header">Asistent Admitere AC</div>
     <div id="chat-messages">
-        <div class="message bot-msg">Salut! Sunt asistentul tău virtual. Cu ce te pot ajuta legat de admitere?</div>
+        <div class="message bot-msg">Salut! Sunt asistentul tau virtual. Cu ce te pot ajuta legat de admitere?</div>
     </div>
     <div id="chat-input-area">
         <input type="text" id="chat-input" placeholder="Scrie un mesaj..." onkeypress="handleKeyPress(event)">
@@ -40,15 +40,12 @@
         const text = chatInput.value.trim();
         if (!text) return;
 
-        // 1. Afișăm mesajul utilizatorului
         appendMessage(text, "user-msg");
         chatInput.value = "";
 
-        // 2. Afișăm un mesaj de "Se încarcă..."
-        const loadingId = appendMessage("Mă gândesc...", "bot-msg");
+        const loadingId = appendMessage("Ma gandesc...", "bot-msg");
 
         try {
-            // 3. Facem cererea către API-ul tău din Python
             const response = await fetch("http://127.0.0.1:8000/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -57,10 +54,8 @@
 
             const data = await response.json();
 
-            // 4. Ștergem mesajul de loading și punem răspunsul real
             document.getElementById(loadingId).remove();
             
-            // Formatăm puțin textul ca să arate bine listele (Markdown simplu la HTML)
             let formattedAnswer = data.answer.replace(/\n/g, "<br>");
             let sourceHtml = `<span class="source-tag">Sursa: ${data.source}</span>`;
             
@@ -72,22 +67,19 @@
         }
     }
 
-    // Funcție utilitară pentru a adăuga bulele de chat în pagină
     function appendMessage(text, className, isHtml = false) {
         const msgDiv = document.createElement("div");
         msgDiv.className = `message ${className}`;
-        // Am adăugat un număr random la final pentru a asigura unicitatea
         msgDiv.id = "msg-" + Date.now() + "-" + Math.floor(Math.random() * 10000);
         
         if (isHtml) msgDiv.innerHTML = text;
         else msgDiv.textContent = text;
         
         chatMessages.appendChild(msgDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll automat jos
+        chatMessages.scrollTop = chatMessages.scrollHeight; 
         return msgDiv.id;
     }
 
-    // Trimite mesajul și la apăsarea tastei Enter
     function handleKeyPress(event) {
         if (event.key === "Enter") {
             sendMessage();
