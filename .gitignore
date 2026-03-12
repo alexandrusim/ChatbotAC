@@ -1,10 +1,29 @@
-
+# Medii virtuale
 .venv/
 venv/
 env/
 
-chroma_db/
-__pycache__/
-
-
+# Fisiere de configurare si parole
 .env
+
+# Baze de date locale (SQLite)
+*.db
+*.sqlite
+*.sqlite3
+chatbot_logs.db
+
+# Baza de date vectoriala (ChromaDB)
+chroma_db/
+
+# Fisiere PDF incarcate (RAG)
+date/
+*.pdf
+
+# Cache-ul lui Python (foarte important sa nu ajunga pe Git)
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Fisiere specifice sistemului de operare
+.DS_Store
+Thumbs.db

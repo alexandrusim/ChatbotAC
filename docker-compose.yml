@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  # 1. BAZA DE DATE (MariaDB)
+  db:
+    image: mariadb:10.11
+    restart: always
+    environment:
+      # Citeste parolele din fisierul .env!
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+
+  # 2. APLICATIA TA (FastAPI + AI)
+  web:
+    build: .
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      # Construim URL-ul folosind variabilele din .env
+      - DATABASE_URL=mysql+pymysql://${DB_USER}:${DB_PASSWORD}@db:3306/${DB_DATABASE}
+      - USER_AGENT=TUIASI-Chatbot/1.0
+    volumes:
+      - ./date:/app/date
+      - ./chroma_db:/app/chroma_db
+
+volumes:
+  db_data:
