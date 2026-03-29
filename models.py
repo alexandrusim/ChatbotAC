@@ -10,6 +10,7 @@ class Conversation(Base):
     user_message = Column(Text)  # Folosim Text pentru mesaje lungi
     bot_response = Column(Text)
     source = Column(String(50))
+    rating = Column(Integer, nullable=True) # 1 - like , -1 dislike sau null pentru neevaluat
 
 class Rule(Base):
     __tablename__ = "rules"

@@ -3,19 +3,18 @@ import shutil
 from fastapi import FastAPI, HTTPException, File, UploadFile, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse 
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-# Importuri din modulele noastre noi
 from database import engine, get_db, SessionLocal
 import models
 from router import rule_based_router
 from rag_engine import get_ai_response, reindex_ai_knowledge, build_rag_chain
 
-# Rezolva avertismentul cu USER_AGENT pentru WebBaseLoader
 os.environ["USER_AGENT"] = "TUIASI-Chatbot/1.0"
 
-# --- CONFIGURARE FASTAPI ---
+# CONFIGURARE FASTAPI 
 app = FastAPI(title="Admitere Chatbot API")
 
 app.add_middleware(
@@ -26,15 +25,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- EVENIMENT DE PORNIRE (STARTUP) ---
+# RUTARE FISIERE STATICE (CSS/JS) 
+app.mount("/static", StaticFiles(directory="frontend"), name="static")
+
+
+# EVENIMENT DE PORNIRE (STARTUP)
 @app.on_event("startup")
 def startup_event():
-    # 1. Creeaza tabelele in baza de date (daca nu exista)
     models.Base.metadata.create_all(bind=engine)
     
     db = SessionLocal()
     
-    # 2. Inseram regulile de baza daca tabelul e gol
     if db.query(models.Rule).count() == 0:
         default_rules = [
             ("contact", "Ne poti contacta la numarul de telefon 0232 278 683 sau prin email la secretariat@ac.tuiasi.ro."),
@@ -46,7 +47,6 @@ def startup_event():
         for kw, resp in default_rules:
             db.add(models.Rule(keyword=kw, response=resp))
         
-    # 3. Inseram link-urile de baza daca tabelul e gol
     if db.query(models.Weblink).count() == 0:
         default_urls = [
             ("url", "https://ac.tuiasi.ro/admitere/licenta/"),
@@ -60,12 +60,11 @@ def startup_event():
     db.commit()
     db.close()
     
-    # 4. Initializam memoria AI-ului (RAG)
     print("Initializez sistemul AI...")
     build_rag_chain()
 
 
-# --- MODELE PYDANTIC (Pentru validarea datelor primite) ---
+# MODELE PYDANTIC (Pentru validarea datelor primite) 
 class ChatRequest(BaseModel):
     message: str
 
@@ -75,9 +74,11 @@ class RuleRequest(BaseModel):
 
 class LinkRequest(BaseModel):
     path: str
+    
+class FeedbackRequest(BaseModel):
+    rating: int
 
-
-# --- ENDPOINT-URI PENTRU CHAT PUBLIC ---
+# ENDPOINT-URI PENTRU CHAT PUBLIC
 
 @app.get("/")
 def read_root():
@@ -85,7 +86,7 @@ def read_root():
 
 @app.get("/chat-ui")
 def serve_frontend():
-    return FileResponse("index.html")
+    return FileResponse("frontend/index.html")
 
 @app.post("/chat")
 async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
@@ -100,7 +101,8 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
         log = models.Conversation(user_message=user_message, bot_response=rule_response, source="rule-based")
         db.add(log)
         db.commit()
-        return {"answer": rule_response, "source": "rule-based"}
+        db.refresh(log) 
+        return {"answer": rule_response, "source": "rule-based", "conversation_id": log.id} 
     
     # 2. Rutare Inteligenta Artificiala (RAG)
     try:
@@ -108,32 +110,33 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
         log = models.Conversation(user_message=user_message, bot_response=ai_answer, source="ai-rag")
         db.add(log)
         db.commit()
-        return {"answer": ai_answer, "source": "ai-rag"}
+        db.refresh(log) 
+        return {"answer": ai_answer, "source": "ai-rag", "conversation_id": log.id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# --- ENDPOINT-URI PENTRU DASHBOARD (ADMIN) ---
+# ENDPOINT-URI PENTRU DASHBOARD (ADMIN)
 
 @app.get("/dashboard")
 def serve_dashboard():
-    return FileResponse("dashboard.html")
+    return FileResponse("frontend/dashboard.html")
 
 @app.get("/logs")
 def get_logs(db: Session = Depends(get_db)):
-    # Luam ultimele 50 conversatii in ordine descrescatoare
+    # ultimele 50 conversatii in ordine descrescatoare
     conversations = db.query(models.Conversation).order_by(models.Conversation.id.desc()).limit(50).all()
     history = [
         {
             "data": c.timestamp, 
             "intrebare_utilizator": c.user_message, 
             "raspuns_bot": c.bot_response, 
-            "sursa": c.source
+            "sursa": c.source,
+            "rating": c.rating
         } for c in conversations
     ]
     return {"istoric_conversatii": history}
 
-# --- REGULI FIXE ---
+# REGULI FIXE 
 @app.get("/api/rules")
 def get_rules(db: Session = Depends(get_db)):
     rules = db.query(models.Rule).all()
@@ -159,7 +162,7 @@ def delete_rule(rule_id: int, db: Session = Depends(get_db)):
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Regula nu a fost gasita.")
 
-# --- SURSE WEB (LINK-URI) ---
+# SURSE WEB (LINK-URI)
 @app.get("/api/weblinks")
 def get_weblinks(db: Session = Depends(get_db)):
     links = db.query(models.Weblink).all()
@@ -185,7 +188,7 @@ def delete_weblink(link_id: int, db: Session = Depends(get_db)):
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Link-ul nu a fost gasit.")
 
-# --- RE-INDEXARE AI ---
+# RE-INDEXARE AI 
 @app.post("/api/reindex")
 def reindex_ai():
     try:
@@ -194,7 +197,7 @@ def reindex_ai():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- GESTIUNE DOCUMENTE PDF ---
+# GESTIUNE DOCUMENTE PDF 
 @app.get("/api/documents")
 def get_documents():
     if not os.path.exists("date"):
@@ -231,3 +234,17 @@ def delete_document(filename: str):
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
     raise HTTPException(status_code=404, detail="Fisierul nu a fost gasit.")
+
+
+# SISTEM DE FEEDBACK 
+@app.post("/feedback/{conversation_id}")
+def submit_feedback(conversation_id: int, feedback: FeedbackRequest, db: Session = Depends(get_db)):
+    conv = db.query(models.Conversation).filter(models.Conversation.id == conversation_id).first()
+    
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversatia nu a fost gasita.")
+        
+    conv.rating = feedback.rating
+    db.commit()
+    
+    return {"message": "Feedback salvat cu succes!", "rating": feedback.rating}
