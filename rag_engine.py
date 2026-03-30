@@ -10,6 +10,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.documents import Document
 
 from database import SessionLocal
 from models import Weblink
@@ -25,8 +26,19 @@ embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
 def create_new_vectorstore():
     print("Incep colectarea informatiilor (PDF + Web)...")
+    
+    if not os.path.exists("date"):
+        os.makedirs("date")
+
+    # --- FIX SUPREM: Nu stergem folderul, ii spunem AI-ului sa-si goleasca memoria ---
     if os.path.exists(CHROMA_PATH):
-        shutil.rmtree(CHROMA_PATH)
+        try:
+            db_vechi = Chroma(persist_directory=CHROMA_PATH, embedding_function=embeddings)
+            db_vechi.delete_collection()
+            print("Memoria AI veche a fost curatata in siguranta.")
+        except Exception as e:
+            pass
+    # ---------------------------------------------------------------------------------
 
     loader_pdf = PyPDFDirectoryLoader("date")
     docs_pdf = loader_pdf.load()
@@ -45,8 +57,10 @@ def create_new_vectorstore():
         print(f"Atentie: Eroare web scraping: {e}")
 
     all_docs = docs_pdf + docs_web
+    
     if not all_docs:
-        raise ValueError("Nu am gasit nicio informatie in folderul 'date' sau in link-uri.")
+        print("AVERTISMENT: Nu am gasit informatii. Creez o baza goala de siguranta.")
+        all_docs = [Document(page_content="Baza de date AI momentan goala.", metadata={"source": "sistem"})]
 
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     splits = text_splitter.split_documents(all_docs)
@@ -69,14 +83,13 @@ def load_or_create_vectorstore():
             print(f"Eroare la incarcare, refac baza de date: {e}")
     return create_new_vectorstore()
 
-# Variabila globala pentru a tine lantul (chain-ul) RAG incarcat in memorie
 rag_chain = None
 
 def build_rag_chain():
     global rag_chain
     vectorstore = load_or_create_vectorstore()
     retriever = vectorstore.as_retriever(search_kwargs={"k": 10}) 
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.3)
+    llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.3)
 
     system_prompt = (
         "Esti un asistent util, prietenos si concis pentru admiterea la facultate (TUIASI). "
@@ -105,5 +118,7 @@ def get_ai_response(user_message: str):
     return response["answer"]
 
 def reindex_ai_knowledge():
+    global rag_chain
+    rag_chain = None # Eliberam complet memoria veche a AI-ului inainte de a reconstrui!
     create_new_vectorstore()
     build_rag_chain()

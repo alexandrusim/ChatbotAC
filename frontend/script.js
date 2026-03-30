@@ -206,15 +206,20 @@ async function stergeLink(id) {
 
 async function reindexeazaAI() {
     const statusText = document.getElementById('reindex-status');
-    statusText.innerText = "Se re-indexeaza... (10-30s)";
+    statusText.innerText = "Se reindexeaza... (10-30s)";
     statusText.style.color = "orange";
     try {
         const res = await fetch('/api/reindex', { method: 'POST' });
         const data = await res.json();
+        
+        if (!res.ok) {
+            throw new Error(data.detail || "Eroare necunoscuta pe server");
+        }
+        
         statusText.innerText = data.status;
         statusText.style.color = "green";
     } catch (e) {
-        statusText.innerText = "Eroare la re-indexare.";
+        statusText.innerText = "Eroare la re-indexare: " + e.message;
         statusText.style.color = "red";
     }
 }

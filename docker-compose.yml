@@ -31,7 +31,5 @@ services:
       - USER_AGENT=TUIASI-Chatbot/1.0
     volumes:
       - ./date:/app/date
-      - ./chroma_db:/app/chroma_db
-
 volumes:
   db_data:
