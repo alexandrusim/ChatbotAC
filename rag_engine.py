@@ -1,5 +1,4 @@
 import os
-import shutil
 from dotenv import load_dotenv
 
 from langchain_community.document_loaders import PyPDFDirectoryLoader, WebBaseLoader
@@ -7,38 +6,29 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings 
 from langchain_community.vectorstores import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.chains import create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.documents import Document
+
+# Am importat componentele de baza LCEL pentru a construi lantul manual
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
 
 from database import SessionLocal
 from models import Weblink
 
-# Incarcare configurari
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-if not GOOGLE_API_KEY:
-    raise ValueError("EROARE: Nu am gasit GOOGLE_API_KEY in fisierul .env")
 
-CHROMA_PATH = "./chroma_db"
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
+rag_chain = None
+vectorstore = None
+
 def create_new_vectorstore():
-    print("Incep colectarea informatiilor (PDF + Web)...")
+    print(">> Incep colectarea informatiilor (PDF + Web)...")
     
     if not os.path.exists("date"):
         os.makedirs("date")
-
-    # --- FIX SUPREM: Nu stergem folderul, ii spunem AI-ului sa-si goleasca memoria ---
-    if os.path.exists(CHROMA_PATH):
-        try:
-            db_vechi = Chroma(persist_directory=CHROMA_PATH, embedding_function=embeddings)
-            db_vechi.delete_collection()
-            print("Memoria AI veche a fost curatata in siguranta.")
-        except Exception as e:
-            pass
-    # ---------------------------------------------------------------------------------
 
     loader_pdf = PyPDFDirectoryLoader("date")
     docs_pdf = loader_pdf.load()
@@ -54,42 +44,37 @@ def create_new_vectorstore():
             loader_web = WebBaseLoader(db_urls)
             docs_web = loader_web.load()
     except Exception as e:
-        print(f"Atentie: Eroare web scraping: {e}")
+        print(f">> Atentie: Eroare web scraping: {e}")
 
     all_docs = docs_pdf + docs_web
     
     if not all_docs:
-        print("AVERTISMENT: Nu am gasit informatii. Creez o baza goala de siguranta.")
         all_docs = [Document(page_content="Baza de date AI momentan goala.", metadata={"source": "sistem"})]
 
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     splits = text_splitter.split_documents(all_docs)
 
-    vectorstore = Chroma.from_documents(
-        documents=splits, 
-        embedding=embeddings, 
-        persist_directory=CHROMA_PATH
-    )
-    return vectorstore
+    print(f">> Construiesc memoria AI in RAM ({len(splits)} fragmente)...")
+    vs = Chroma.from_documents(documents=splits, embedding=embeddings)
+    return vs
 
-def load_or_create_vectorstore():
-    if os.path.exists(CHROMA_PATH) and os.listdir(CHROMA_PATH):
-        print("Am gasit o baza de date vectoriala. O incarc...")
-        try:
-            vectorstore = Chroma(persist_directory=CHROMA_PATH, embedding_function=embeddings)
-            if len(vectorstore.get()['ids']) > 0:
-                return vectorstore
-        except Exception as e:
-            print(f"Eroare la incarcare, refac baza de date: {e}")
-    return create_new_vectorstore()
+# Functie utilitara care transforma lista de documente intr-un singur string
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
 
-rag_chain = None
+def build_rag_chain(vs_nou=None):
+    global rag_chain, vectorstore
+    
+    if vs_nou is not None:
+        vectorstore = vs_nou
+    elif vectorstore is None:
+        vectorstore = create_new_vectorstore()
 
-def build_rag_chain():
-    global rag_chain
-    vectorstore = load_or_create_vectorstore()
+    print(">> Initializez LLM si Retriever...")
     retriever = vectorstore.as_retriever(search_kwargs={"k": 10}) 
-    llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.3)
+    
+    # Am revenit oficial la versiunea ta castigatoare!
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.3)
 
     system_prompt = (
         "Esti un asistent util, prietenos si concis pentru admiterea la facultate (TUIASI). "
@@ -107,18 +92,29 @@ def build_rag_chain():
         ("human", "{input}"),
     ])
 
-    question_answer_chain = create_stuff_documents_chain(llm, prompt)
-    rag_chain = create_retrieval_chain(retriever, question_answer_chain)
+    print(">> Construiesc QA Chain manual (LCEL)...")
+    
+    # Asamblarea clara, fara functii "black-box" care sa dea crash aiurea
+    rag_chain = (
+        {"context": retriever | format_docs, "input": RunnablePassthrough()}
+        | prompt
+        | llm
+        | StrOutputParser()
+    )
+    
+    print(">> Lantul AI a fost construit cu succes!")
 
 def get_ai_response(user_message: str):
     global rag_chain
     if not rag_chain:
         build_rag_chain()
-    response = rag_chain.invoke({"input": user_message})
-    return response["answer"]
+    
+    # Noul nostru lant inteligent returneaza raspunsul ca string direct
+    answer = rag_chain.invoke(user_message)
+    return answer
 
 def reindex_ai_knowledge():
-    global rag_chain
-    rag_chain = None # Eliberam complet memoria veche a AI-ului inainte de a reconstrui!
-    create_new_vectorstore()
-    build_rag_chain()
+    print(">> Start Re-indexare in RAM...")
+    nou_vectorstore = create_new_vectorstore()
+    build_rag_chain(vs_nou=nou_vectorstore)
+    print(">> Re-indexare finalizata complet si in siguranta!")
