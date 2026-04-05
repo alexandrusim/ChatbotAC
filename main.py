@@ -5,8 +5,7 @@ from fastapi.staticfiles import StaticFiles
 
 from database import engine, SessionLocal
 import models
-from rag_engine import build_rag_chain
-
+from rag_engine import reindex_ai_knowledge
 from router import router
 
 os.environ["USER_AGENT"] = "TUIASI-Chatbot/1.0"
@@ -56,7 +55,7 @@ def startup_event():
     db.commit()
     db.close()
     
-    print("Initializez sistemul AI...")
-    build_rag_chain()
+    print("Initializez memoria AI...")
+    reindex_ai_knowledge()
 
 app.include_router(router)

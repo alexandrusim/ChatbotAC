@@ -26,7 +26,7 @@ services:
       - db
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-      # Construim URL-ul folosind variabilele din .env
+      - GROQ_API_KEY=${GROQ_API_KEY}
       - DATABASE_URL=mysql+pymysql://${DB_USER}:${DB_PASSWORD}@db:3306/${DB_DATABASE}
       - USER_AGENT=TUIASI-Chatbot/1.0
     volumes:

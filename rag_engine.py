@@ -1,4 +1,5 @@
 import os
+import random
 from dotenv import load_dotenv
 
 from langchain_community.document_loaders import PyPDFDirectoryLoader, WebBaseLoader
@@ -6,45 +7,112 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings 
 from langchain_community.vectorstores import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.documents import Document
-
-# Am importat componentele de baza LCEL pentru a construi lantul manual
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 
 from database import SessionLocal
-from models import Weblink
+from models import Weblink, Conversation
 
+# Load environment variables
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-
-rag_chain = None
 vectorstore = None
 
-def create_new_vectorstore():
-    print(">> Incep colectarea informatiilor (PDF + Web)...")
+def calculate_model_fitness():
+    db = SessionLocal()
+    scores = {}
     
-    if not os.path.exists("date"):
-        os.makedirs("date")
+    try:
+        # Fetch all rated conversations handled by AI
+        history = db.query(Conversation.source, Conversation.rating).filter(
+            Conversation.source.like('ai-rag%'),
+            Conversation.rating != None
+        ).all()
+        
+        sums = {}
+        votes = {}
+        
+        for source, rating in history:
 
+            if source.startswith("ai-rag (") and source.endswith(")"):
+                model_name = source[8:-1]
+            else:
+                model_name = source
+            
+            sums[model_name] = sums.get(model_name, 0) + rating
+            votes[model_name] = votes.get(model_name, 0) + 1
+            
+        # Calculate the average (fitness score)
+        for model in sums:
+            scores[model] = sums[model] / votes[model]
+            
+        return scores
+    finally:
+        db.close()
+
+def get_roulette_wheel_llm():
+    """ Official Roulette Wheel Selection implementation """
+    
+    # 1. Define the "Population" (Available models)
+    population = {}
+    
+    if GOOGLE_API_KEY:
+        population["Gemini 2.5 Flash"] = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.3)
+        population["Gemini 3.0 Flash(preview)"] = ChatGoogleGenerativeAI(model="gemini-3-flash-preview", temperature=0.3)
+        population["Gemini 3.1 Flash Lite(preview)"] = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite-preview", temperature=0.3)
+    
+    if GROQ_API_KEY:
+        population["Llama 3.3 (70B)"] = ChatGroq(model_name="llama-3.3-70b-versatile", temperature=0.3)
+        population["Llama 3.1 (8B)"] = ChatGroq(model_name="llama-3.1-8b-instant", temperature=0.3)
+
+    if not population:
+        raise ValueError("ERROR: No valid API key found in .env!")
+
+    # 2. Get current fitness scores from the database
+    current_fitness = calculate_model_fitness()
+    
+    model_names = list(population.keys())
+    roulette_weights = []
+    
+    # 3. Assign Roulette Weights
+    for name in model_names:
+        # If a model has no rating yet, give it a baseline fitness of 3.0 out of 5.0
+        score = current_fitness.get(name, 3.0)
+        roulette_weights.append(score)
+
+    # 4. Spin the wheel!
+    winning_model = random.choices(model_names, weights=roulette_weights, k=1)[0]
+    
+    print(f">> Current roulette scores: {dict(zip(model_names, roulette_weights))}")
+    print(f">> The wheel stopped on: {winning_model}")
+    
+    return winning_model, population[winning_model]
+
+def create_new_vectorstore():
+    print(">> Starting information collection (PDF + Web)...")
+    if not os.path.exists("date"): 
+        os.makedirs("date")
+    
     loader_pdf = PyPDFDirectoryLoader("date")
     docs_pdf = loader_pdf.load()
-
+    
     docs_web = []
     try:
         db = SessionLocal()
         urls = db.query(Weblink).filter(Weblink.type == 'url').all()
         db_urls = [u.path for u in urls]
         db.close()
-
         if db_urls:
             loader_web = WebBaseLoader(db_urls)
             docs_web = loader_web.load()
     except Exception as e:
-        print(f">> Atentie: Eroare web scraping: {e}")
+        print(f">> Warning: Web scraping error: {e}")
 
     all_docs = docs_pdf + docs_web
     
@@ -54,27 +122,27 @@ def create_new_vectorstore():
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     splits = text_splitter.split_documents(all_docs)
 
-    print(f">> Construiesc memoria AI in RAM ({len(splits)} fragmente)...")
-    vs = Chroma.from_documents(documents=splits, embedding=embeddings)
-    return vs
+    print(f">> Building AI memory in RAM ({len(splits)} chunks)...")
+    return Chroma.from_documents(documents=splits, embedding=embeddings)
 
-# Functie utilitara care transforma lista de documente intr-un singur string
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
-def build_rag_chain(vs_nou=None):
-    global rag_chain, vectorstore
-    
-    if vs_nou is not None:
-        vectorstore = vs_nou
-    elif vectorstore is None:
+def reindex_ai_knowledge():
+    global vectorstore
+    print(">> Start Re-indexing in RAM...")
+    vectorstore = create_new_vectorstore()
+    print(">> Re-indexing finished successfully!")
+
+def get_ai_response(user_message: str):
+    global vectorstore
+    if vectorstore is None:
         vectorstore = create_new_vectorstore()
 
-    print(">> Initializez LLM si Retriever...")
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 10}) 
-    
-    # Am revenit oficial la versiunea ta castigatoare!
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.3)
+    winning_model_name, llm = get_roulette_wheel_llm()
+    print(f">> Processing question with model: {winning_model_name}")
+
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 7})
 
     system_prompt = (
         "Esti un asistent util, prietenos si concis pentru admiterea la facultate (TUIASI). "
@@ -92,9 +160,6 @@ def build_rag_chain(vs_nou=None):
         ("human", "{input}"),
     ])
 
-    print(">> Construiesc QA Chain manual (LCEL)...")
-    
-    # Asamblarea clara, fara functii "black-box" care sa dea crash aiurea
     rag_chain = (
         {"context": retriever | format_docs, "input": RunnablePassthrough()}
         | prompt
@@ -102,19 +167,6 @@ def build_rag_chain(vs_nou=None):
         | StrOutputParser()
     )
     
-    print(">> Lantul AI a fost construit cu succes!")
-
-def get_ai_response(user_message: str):
-    global rag_chain
-    if not rag_chain:
-        build_rag_chain()
-    
-    # Noul nostru lant inteligent returneaza raspunsul ca string direct
     answer = rag_chain.invoke(user_message)
-    return answer
-
-def reindex_ai_knowledge():
-    print(">> Start Re-indexare in RAM...")
-    nou_vectorstore = create_new_vectorstore()
-    build_rag_chain(vs_nou=nou_vectorstore)
-    print(">> Re-indexare finalizata complet si in siguranta!")
+    
+    return answer, winning_model_name

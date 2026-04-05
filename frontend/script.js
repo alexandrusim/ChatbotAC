@@ -1,5 +1,3 @@
-/* LOGICA PENTRU CHAT */
-
 async function sendMessage() {
     const chatInput = document.getElementById("chat-input");
     const text = chatInput.value.trim();
@@ -8,7 +6,7 @@ async function sendMessage() {
     appendMessage(text, "user-msg");
     chatInput.value = "";
 
-    const loadingId = appendMessage("Ma gandesc...", "bot-msg");
+    const loadingId = appendMessage("Mă gândesc...", "bot-msg");
 
     try {
         const response = await fetch("http://127.0.0.1:8000/chat", {
@@ -25,7 +23,6 @@ async function sendMessage() {
         
         let feedbackHtml = "";
         if (data.conversation_id) {
-            // Generam 5 butoane cu stelute
             feedbackHtml = `
                 <div class="feedback-container" id="feedback-${data.conversation_id}">
                     <button class="star-btn" onclick="sendFeedback(${data.conversation_id}, 1, this)" title="1 Stea">⭐</button>
@@ -81,7 +78,7 @@ async function sendFeedback(conversationId, rating, btnElement) {
 }
 
 
-/* LOGICA PENTRU DASHBOARD ADMIN  */
+/* ADMIN DASHBOARD LOGIC */
 
 function showSection(id) {
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -89,125 +86,153 @@ function showSection(id) {
     document.getElementById(id).classList.add('active');
     event.target.classList.add('active');
 
-    if(id === 'istoric') incarcaIstoric();
-    if(id === 'reguli') incarcaReguli();
+    if(id === 'istoric') loadHistory();
+    if(id === 'reguli') loadRules();
     if(id === 'surse') {
-        incarcaSurse();
-        incarcaDocumente();
+        loadSources();
+        loadDocuments();
     }
 }
 
-async function incarcaIstoric() {
+async function loadHistory() {
     try {
         const res = await fetch('/logs');
         const data = await res.json();
         const tbody = document.getElementById('tabel-istoric');
-        if (!tbody) return; // Protectie
+        if (!tbody) return; 
         
         tbody.innerHTML = '';
         data.istoric_conversatii.forEach(row => {
-            let afisareRating = "<span style='color: gray'>Fără notă</span>";
+            
+            let displayRating = "<span style='color: gray'>-</span>";
             if (row.rating !== null && row.rating > 0) {
-                // Daca are nota, o afisam cu un galben auriu si bold
-                afisareRating = `<span style='color: #d4af37; font-weight: bold;'>${row.rating} / 5 </span>`;
+                displayRating = `<strong>${row.rating}/5</strong>`;
+            }
+
+            let displaySource = row.sursa;
+            if (row.sursa === "rule-based") {
+                displaySource = "<strong>Regulă Fixă</strong>";
+            } else if (row.sursa.startsWith("ai-rag")) {
+                let cleanName = row.sursa.replace("ai-rag (", "").replace(")", "");
+                displaySource = `<strong>${cleanName}</strong>`;
             }
 
             tbody.innerHTML += `<tr>
-                <td>${row.data}</td>
+                <td style="font-size: 0.9em; color: #555;">${row.data}</td>
                 <td>${row.intrebare_utilizator}</td>
                 <td>${row.raspuns_bot}</td>
-                <td>${row.sursa}</td>
-                <td style="text-align: center;">${afisareRating}</td>
+                <td style="text-align: center;">${displaySource}</td>
+                <td style="text-align: center;">${displayRating}</td>
             </tr>`;
         });
-    } catch(e) { console.error("Eroare incarcare istoric", e); }
+    } catch(e) { console.error("Error loading history:", e); }
 }
 
-async function incarcaReguli() {
+async function loadRules() {
     const res = await fetch('/api/rules');
     const rules = await res.json();
     const tbody = document.getElementById('tabel-reguli');
     tbody.innerHTML = '';
     rules.forEach(r => {
-        tbody.innerHTML += `<tr><td>${r.keyword}</td><td>${r.response}</td><td><button class="delete-btn" onclick="stergeRegula(${r.id})">Sterge</button></td></tr>`;
+        tbody.innerHTML += `<tr><td>${r.keyword}</td><td>${r.response}</td><td><button class="delete-btn" onclick="deleteRule(${r.id})">Sterge</button></td></tr>`;
     });
 }
 
-async function adaugaRegula() {
+async function addRule() {
     const keyword = document.getElementById('new-keyword').value;
     const response = document.getElementById('new-response').value;
     if (!keyword || !response) return alert("Completeaza ambele campuri!");
-    await fetch('/api/rules', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ keyword: keyword, response: response }) });
+    
+    await fetch('/api/rules', { 
+        method: 'POST', 
+        headers: {'Content-Type': 'application/json'}, 
+        body: JSON.stringify({ keyword: keyword, response: response }) 
+    });
+    
     document.getElementById('new-keyword').value = '';
     document.getElementById('new-response').value = '';
-    incarcaReguli();
+    loadRules();
 }
 
-async function stergeRegula(id) {
+async function deleteRule(id) {
     if(!confirm("Sigur vrei sa stergi aceasta regula?")) return;
     await fetch(`/api/rules/${id}`, { method: 'DELETE' });
-    incarcaReguli();
+    loadRules();
 }
 
-async function incarcaDocumente() {
+async function loadDocuments() {
     const res = await fetch('/api/documents');
     const docs = await res.json();
     const tbody = document.getElementById('tabel-documente');
     tbody.innerHTML = '';
     docs.forEach(d => {
-        tbody.innerHTML += `<tr><td>${d.filename}</td><td><button class="delete-btn" onclick="stergeDocument('${d.filename}')">Sterge</button></td></tr>`;
+        tbody.innerHTML += `<tr><td>${d.filename}</td><td><button class="delete-btn" onclick="deleteDocument('${d.filename}')">Sterge</button></td></tr>`;
     });
 }
 
-async function incarcaPDF() {
+async function uploadPDF() {
     const fileInput = document.getElementById('pdf-upload');
     if (fileInput.files.length === 0) return alert("Selecteaza un fisier PDF!");
+    
     const formData = new FormData();
     formData.append("file", fileInput.files[0]);
+    
     try {
         const res = await fetch('/api/upload-pdf', { method: 'POST', body: formData });
         const data = await res.json();
         if(data.status === "success") {
             alert("Incarcat! Nu uita de butonul RE-INDEXARE!");
-            fileInput.value = ""; incarcaDocumente(); 
-        } else { alert("Eroare."); }
-    } catch (e) { alert("Eroare de conexiune."); }
+            fileInput.value = ""; 
+            loadDocuments(); 
+        } else { 
+            alert("Eroare la incarcare."); 
+        }
+    } catch (e) { 
+        alert("Eroare de conexiune."); 
+    }
 }
 
-async function stergeDocument(filename) {
+async function deleteDocument(filename) {
     if(!confirm(`Stergi fisierul ${filename}?`)) return;
     await fetch(`/api/documents/${filename}`, { method: 'DELETE' });
-    incarcaDocumente(); 
+    loadDocuments(); 
 }
 
-async function incarcaSurse() {
+async function loadSources() {
     const res = await fetch('/api/weblinks');
     const links = await res.json();
     const tbody = document.getElementById('tabel-surse');
     tbody.innerHTML = '';
     links.forEach(l => {
-        tbody.innerHTML += `<tr><td>${l.type}</td><td>${l.path}</td><td><button class="delete-btn" onclick="stergeLink(${l.id})">Sterge</button></td></tr>`;
+        tbody.innerHTML += `<tr><td>${l.type}</td><td>${l.path}</td><td><button class="delete-btn" onclick="deleteLink(${l.id})">Sterge</button></td></tr>`;
     });
 }
 
-async function adaugaLink() {
+async function addLink() {
     const path = document.getElementById('new-link').value;
     if (!path) return alert("Introdu un link!");
-    await fetch('/api/weblinks', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ path: path }) });
+    
+    await fetch('/api/weblinks', { 
+        method: 'POST', 
+        headers: {'Content-Type': 'application/json'}, 
+        body: JSON.stringify({ path: path }) 
+    });
+    
     document.getElementById('new-link').value = '';
-    incarcaSurse();
+    loadSources();
 }
 
-async function stergeLink(id) {
+async function deleteLink(id) {
     if(!confirm("Stergi acest link?")) return;
     await fetch(`/api/weblinks/${id}`, { method: 'DELETE' });
-    incarcaSurse();
+    loadSources();
 }
 
-async function reindexeazaAI() {
+async function reindexAI() {
     const statusText = document.getElementById('reindex-status');
     statusText.innerText = "Se reindexeaza... (10-30s)";
     statusText.style.color = "orange";
+    
     try {
         const res = await fetch('/api/reindex', { method: 'POST' });
         const data = await res.json();
@@ -224,10 +249,9 @@ async function reindexeazaAI() {
     }
 }
 
-
-// INITIALIZARE AUTOMATA LA INCARCAREA PAGINII
+// AUTO-INITIALIZE ON PAGE LOAD
 document.addEventListener("DOMContentLoaded", () => {
     if (document.getElementById("tabel-istoric")) {
-        incarcaIstoric();
+        loadHistory();
     }
 });

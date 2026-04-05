@@ -56,12 +56,18 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
     
     # 2. Rutare Inteligenta Artificiala (RAG)
     try:
-        ai_answer = get_ai_response(user_message)
-        log = models.Conversation(user_message=user_message, bot_response=ai_answer, source="ai-rag")
+        # Preluam raspunsul si numele modelului castigator de la ruleta
+        ai_answer, nume_model = get_ai_response(user_message)
+        
+        # Salvam in baza de date cu numele exact al modelului
+        sursa_exacta = f"ai-rag ({nume_model})"
+        log = models.Conversation(user_message=user_message, bot_response=ai_answer, source=sursa_exacta)
+        
         db.add(log)
         db.commit()
         db.refresh(log) 
-        return {"answer": ai_answer, "source": "ai-rag", "conversation_id": log.id}
+        
+        return {"answer": ai_answer, "source": sursa_exacta, "conversation_id": log.id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
