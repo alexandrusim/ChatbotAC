@@ -160,6 +160,7 @@ def get_ai_response(user_message: str):
         ("human", "{input}"),
     ])
 
+    # Construim lantul RAG normal
     rag_chain = (
         {"context": retriever | format_docs, "input": RunnablePassthrough()}
         | prompt
@@ -167,6 +168,36 @@ def get_ai_response(user_message: str):
         | StrOutputParser()
     )
     
-    answer = rag_chain.invoke(user_message)
-    
-    return answer, winning_model_name
+   # === SISTEMUL DE FALLBACK SILENTIOS ===
+    try:
+        answer = rag_chain.invoke(user_message)
+        return answer, winning_model_name
+        
+    except Exception as e:
+        print(f"\n>> [!] EROARE LA MODELUL {winning_model_name}: {e}")
+        
+        # Fallback Incrucisat (Cross-Provider)
+        # Daca a picat Groq (Llama), cerem ajutorul lui Google
+        if "Llama" in winning_model_name:
+            print(">> [!] INITIEZ FALLBACK SILENTIOS catre Gemini 2.5 Flash...\n")
+            fallback_name = "Gemini 2.5 Flash [FALLBACK]"
+            fallback_llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.3)
+            
+        # Daca a picat Google (sau oricare altul), cere ajutorul lui Groq
+        else:
+            print(">> [!] INITIEZ FALLBACK SILENTIOS catre Llama 3.1 (8B)...\n")
+            fallback_name = "Llama 3.1 (8B) [FALLBACK]"
+            fallback_llm = ChatGroq(model_name="llama-3.1-8b-instant", temperature=0.3)
+        
+        # Reconstruim rapid lantul strict pentru modelul de rezerva
+        fallback_chain = (
+            {"context": retriever | format_docs, "input": RunnablePassthrough()}
+            | prompt
+            | fallback_llm
+            | StrOutputParser()
+        )
+        
+        # Generam raspunsul salvator
+        answer = fallback_chain.invoke(user_message)
+        
+        return answer, fallback_name
