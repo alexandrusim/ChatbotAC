@@ -19,7 +19,7 @@
 
     <div id="istoric" class="section active">
         <h2>Ultimele 50 de conversatii</h2>
-        <button class="action-btn" onclick="incarcaIstoric()">Actualizeaza Tabelul</button>
+        <button class="action-btn" onclick="loadHistory()">Actualizeaza Tabelul</button>
         <table>
             <thead>
                 <tr>
@@ -39,7 +39,7 @@
         <div class="form-group">
             <input type="text" id="new-keyword" placeholder="Cuvant cheie (ex: numar de telefon)">
             <input type="text" id="new-response" placeholder="Raspunsul fix dorit...">
-            <button class="action-btn" onclick="adaugaRegula()">Adauga Regula</button>
+            <button class="action-btn" onclick="addRule()">Adauga Regula</button>
         </div>
         <h2>Reguli active in baza de date</h2>
         <table>
@@ -59,7 +59,7 @@
         <h2>1. Documente PDF (Regulamente / Ghiduri)</h2>
         <div class="form-group">
             <input type="file" id="pdf-upload" accept="application/pdf">
-            <button class="action-btn" onclick="incarcaPDF()">Incarca PDF in sistem</button>
+            <button class="action-btn" onclick="uploadPDF()">Incarca PDF in sistem</button>
         </div>
         
         <table>
@@ -77,7 +77,7 @@
         <h2>2. Link-uri Web Scanate</h2>
         <div class="form-group">
             <input type="text" id="new-link" placeholder="https://admitere.tuiasi.ro/nou...">
-            <button class="action-btn" onclick="adaugaLink()">Adauga Link</button>
+            <button class="action-btn" onclick="addLink()">Adauga Link</button>
         </div>
         
         <table>
@@ -95,7 +95,7 @@
 
         <h2>3. Actualizare Inteligenta Artificiala</h2>
         <p><i>Atentie: Orice modificare de mai sus (adaugare/stergere PDF sau Link) NU se va aplica pana nu apesi acest buton! Procesul va dura cateva secunde.</i></p>
-        <button class="reindex-btn" onclick="reindexeazaAI()">RE-INDEXEAZA BAZA DE DATE AI</button>
+        <button class="reindex-btn" onclick="reindexAI()">RE-INDEXEAZA BAZA DE DATE AI</button>
         <p id="reindex-status" style="text-align: center; color: red; font-weight: bold; margin-top: 15px; font-size: 18px;"></p>
         
     </div>
