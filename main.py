@@ -44,10 +44,7 @@ def startup_event():
         
     if db.query(models.Weblink).count() == 0:
         default_urls = [
-            ("url", "https://ac.tuiasi.ro/admitere/licenta/"),
-            ("url", "https://ac.tuiasi.ro/admitere/masterat/"),
-            ("url", "https://www.admitere.tuiasi.ro/licenta/index.php"),
-            ("url", "https://www.tuiasi.ro/licenta/")
+            ("url", "https://ac.tuiasi.ro/admitere/licenta/")
         ]
         for t, p in default_urls:
             db.add(models.Weblink(type=t, path=p))
