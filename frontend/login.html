@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Admin - TUIASI</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+            padding: 30px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .login-input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body style="background-color: #f4f7f6;">
+
+<div class="login-container">
+    <h2>Autentificare Admin</h2>
+    <input type="text" id="username" class="login-input" placeholder="Nume utilizator">
+    <input type="password" id="password" class="login-input" placeholder="Parola" onkeypress="handleEnterLogin(event)">
+    <button class="action-btn" style="width: 100%; margin-top: 15px;" onclick="doLogin()">Login</button>
+    <p id="error-msg" style="color: red; margin-top: 15px; font-weight: bold;"></p>
+</div>
+
+<script src="/static/script.js"></script>
+
+</body>
+</html>

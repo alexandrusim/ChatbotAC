@@ -1,5 +1,6 @@
 import os
 import random
+import spacy
 from dotenv import load_dotenv
 
 from langchain_community.document_loaders import PyPDFDirectoryLoader, WebBaseLoader
@@ -24,6 +25,30 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 vectorstore = None
 
+# Incarcam modelul spaCy pentru eventuale extinderi de NLP
+print(">> [RAG] Se incarca modelul NLP spaCy pentru interceptare...")
+nlp_spacy = spacy.load("ro_core_news_sm")
+
+def corecteaza_vocabular_student(mesaj: str) -> str:
+    """Intercepteaza si inlocuieste sintagmele studentilor cu termeni academici oficiali."""
+    mesaj_lower = mesaj.lower()
+    
+    # Folosim inlocuiri de FRAZE pentru a pastra contextul (evitam over-replacement)
+    fraze_sinonime = {
+        "nota la admitere": "media de admitere",
+        "nota de admitere": "media de admitere",
+        "nota finala": "media de admitere",
+        "actele necesare": "dosarul de inscriere",
+        "hartiile pentru": "actele pentru",
+        "sa intru la": "sa fiu admis la"
+    }
+    
+    mesaj_corectat = mesaj_lower
+    for gresit, corect in fraze_sinonime.items():
+        mesaj_corectat = mesaj_corectat.replace(gresit, corect)
+            
+    return mesaj_corectat
+
 def calculate_model_fitness():
     db = SessionLocal()
     scores = {}
@@ -39,7 +64,6 @@ def calculate_model_fitness():
         votes = {}
         
         for source, rating in history:
-
             if source.startswith("ai-rag (") and source.endswith(")"):
                 model_name = source[8:-1]
             else:
@@ -64,7 +88,7 @@ def get_roulette_wheel_llm():
     
     if GOOGLE_API_KEY:
         population["Gemini 3.5 Flash"] = ChatGoogleGenerativeAI(model="gemini-3.5-flash", temperature=0.3)
-        population["Gemini 3.0 Flash"] = ChatGoogleGenerativeAI(model="gemini-3-flash", temperature=0.3)
+        population["Gemini 3.0 Flash (preview)"] = ChatGoogleGenerativeAI(model="gemini-3-flash-preview", temperature=0.3)
         population["Gemini 3.1 Flash Lite"] = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite", temperature=0.3)
     
     if GROQ_API_KEY:
@@ -139,6 +163,13 @@ def get_ai_response(user_message: str):
     if vectorstore is None:
         vectorstore = create_new_vectorstore()
 
+    # === Interceptam si corectam vocabularul ===
+    mesaj_procesat = corecteaza_vocabular_student(user_message)
+    if mesaj_procesat != user_message.lower():
+        print(f"\n>> [!] Input original: {user_message}")
+        print(f">> [!] Input tradus semantic: {mesaj_procesat}")
+    # ===========================================
+
     winning_model_name, llm = get_roulette_wheel_llm()
     print(f">> Processing question with model: {winning_model_name}")
 
@@ -151,7 +182,8 @@ def get_ai_response(user_message: str):
         "1. Fii foarte SCURT si LA OBIECT. Foloseste liste cu liniuta (bullet points).\n"
         "2. PRIORITIZEAZA candidatii standard (cetateni romani, absolventi de liceu in Romania).\n"
         "3. Cand esti intrebat de 'acte' sau 'dosar', enumera doar documentele de baza.\n"
-        "4. Raspunde cu incredere! Daca informatia lipseste COMPLET din context, spune: 'Nu am gasit aceasta informatie in documentele oficiale actuale. Pentru intrebari specifice, te rugam sa ne contactezi la adresa de email: admitere.ac@groups.tuiasi.ro'.\n\n"
+        "4. Raspunde cu incredere! Daca informatia lipseste COMPLET din context, spune: 'Nu am gasit aceasta informatie in documentele oficiale actuale. Pentru intrebari specifice, te rugam sa ne contactezi la adresa de email: admitere.ac@groups.tuiasi.ro'.\n"
+        "5. IMPORTANT: Scrie formulele matematice in format text simplu (ex: Rezultat = 0.5 * A + 0.5 * B). NU folosi formatare LaTeX si NU pune semnele $.\n\n"
         "Context extras din documente:\n{context}"
     )
 
@@ -168,22 +200,21 @@ def get_ai_response(user_message: str):
         | StrOutputParser()
     )
     
-   # === SISTEMUL DE FALLBACK SILENTIOS ===
+    # === SISTEMUL DE FALLBACK SILENTIOS ===
     try:
-        answer = rag_chain.invoke(user_message)
+        # ATENTIE: Trimitem mesajul procesat (cu sinonime) catre LLM
+        answer = rag_chain.invoke(mesaj_procesat)
         return answer, winning_model_name
         
     except Exception as e:
         print(f"\n>> [!] EROARE LA MODELUL {winning_model_name}: {e}")
         
         # Fallback Incrucisat (Cross-Provider)
-        # Daca a picat Groq (Llama), cerem ajutorul lui Google
         if "Llama" in winning_model_name:
             print(">> [!] INITIEZ FALLBACK SILENTIOS catre Gemini 2.5 Flash...\n")
             fallback_name = "Gemini 2.5 Flash [FALLBACK]"
             fallback_llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.3)
             
-        # Daca a picat Google (sau oricare altul), cere ajutorul lui Groq
         else:
             print(">> [!] INITIEZ FALLBACK SILENTIOS catre Llama 3.1 (8B)...\n")
             fallback_name = "Llama 3.1 (8B) [FALLBACK]"
@@ -197,7 +228,7 @@ def get_ai_response(user_message: str):
             | StrOutputParser()
         )
         
-        # Generam raspunsul salvator
-        answer = fallback_chain.invoke(user_message)
+        # Generam raspunsul salvator folosind tot mesajul procesat
+        answer = fallback_chain.invoke(mesaj_procesat)
         
         return answer, fallback_name

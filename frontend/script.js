@@ -1,3 +1,68 @@
+// ==========================================
+// 1. SECURITATE SI AUTENTIFICARE (JWT)
+// ==========================================
+
+// Verificam daca utilizatorul are voie sa fie pe dashboard
+if (window.location.pathname.includes("dashboard")) {
+    const token = localStorage.getItem("admin_token");
+    if (!token) {
+        window.location.href = "/static/login.html";
+    }
+}
+
+// Functie helper pentru a pune token-ul in header-ul cererilor
+function getAuthHeaders(isJson = true) {
+    const headers = {
+        "Authorization": `Bearer ${localStorage.getItem("admin_token")}`
+    };
+    if (isJson) headers["Content-Type"] = "application/json";
+    return headers;
+}
+
+// Functie pentru Login
+async function doLogin() {
+    const user = document.getElementById("username").value;
+    const pass = document.getElementById("password").value;
+    const errorMsg = document.getElementById("error-msg");
+    
+    const formData = new URLSearchParams();
+    formData.append("username", user);
+    formData.append("password", pass);
+
+    try {
+        const res = await fetch("/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: formData
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            localStorage.setItem("admin_token", data.access_token);
+            window.location.href = "/dashboard"; // Ruta din FastAPI catre dashboard
+        } else {
+            errorMsg.innerText = "Utilizator sau parolă incorecte!";
+        }
+    } catch (e) {
+        errorMsg.innerText = "Eroare de conexiune cu serverul.";
+    }
+}
+
+function handleEnterLogin(event) {
+    if (event.key === "Enter") doLogin();
+}
+
+// Functie pentru Logout
+function logoutAdmin() {
+    localStorage.removeItem("admin_token");
+    window.location.href = "/static/login.html";
+}
+
+
+// ==========================================
+// 2. LOGICA PENTRU CHAT (PUBLIC)
+// ==========================================
+
 async function sendMessage() {
     const chatInput = document.getElementById("chat-input");
     const text = chatInput.value.trim();
@@ -9,7 +74,7 @@ async function sendMessage() {
     const loadingId = appendMessage("Mă gândesc...", "bot-msg");
 
     try {
-        const response = await fetch("http://127.0.0.1:8000/chat", {
+        const response = await fetch("/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ message: text })
@@ -18,7 +83,7 @@ async function sendMessage() {
         const data = await response.json();
         document.getElementById(loadingId).remove();
         
-        let formattedAnswer = data.answer.replace(/\n/g, "<br>");
+        let formattedAnswer = marked.parse(data.answer);
         let sourceHtml = `<span class="source-tag">Sursa: ${data.source}</span>`;
         
         let feedbackHtml = "";
@@ -78,7 +143,9 @@ async function sendFeedback(conversationId, rating, btnElement) {
 }
 
 
-/* ADMIN DASHBOARD LOGIC */
+// ==========================================
+// 3. LOGICA PENTRU DASHBOARD (ADMIN PROTEJAT)
+// ==========================================
 
 function showSection(id) {
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -96,14 +163,15 @@ function showSection(id) {
 
 async function loadHistory() {
     try {
-        const res = await fetch('/logs');
+        const res = await fetch('/logs', { headers: getAuthHeaders() });
+        if (res.status === 401) return logoutAdmin();
+        
         const data = await res.json();
         const tbody = document.getElementById('tabel-istoric');
         if (!tbody) return; 
         
         tbody.innerHTML = '';
         data.istoric_conversatii.forEach(row => {
-            
             let displayRating = "<span style='color: gray'>-</span>";
             if (row.rating !== null && row.rating > 0) {
                 displayRating = `<strong>${row.rating}/5</strong>`;
@@ -129,7 +197,8 @@ async function loadHistory() {
 }
 
 async function loadRules() {
-    const res = await fetch('/api/rules');
+    const res = await fetch('/api/rules', { headers: getAuthHeaders() });
+    if (res.status === 401) return logoutAdmin();
     const rules = await res.json();
     const tbody = document.getElementById('tabel-reguli');
     tbody.innerHTML = '';
@@ -145,7 +214,7 @@ async function addRule() {
     
     await fetch('/api/rules', { 
         method: 'POST', 
-        headers: {'Content-Type': 'application/json'}, 
+        headers: getAuthHeaders(), 
         body: JSON.stringify({ keyword: keyword, response: response }) 
     });
     
@@ -156,12 +225,13 @@ async function addRule() {
 
 async function deleteRule(id) {
     if(!confirm("Sigur vrei sa stergi aceasta regula?")) return;
-    await fetch(`/api/rules/${id}`, { method: 'DELETE' });
+    await fetch(`/api/rules/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
     loadRules();
 }
 
 async function loadDocuments() {
-    const res = await fetch('/api/documents');
+    const res = await fetch('/api/documents', { headers: getAuthHeaders() });
+    if (res.status === 401) return logoutAdmin();
     const docs = await res.json();
     const tbody = document.getElementById('tabel-documente');
     tbody.innerHTML = '';
@@ -178,8 +248,14 @@ async function uploadPDF() {
     formData.append("file", fileInput.files[0]);
     
     try {
-        const res = await fetch('/api/upload-pdf', { method: 'POST', body: formData });
+        const res = await fetch('/api/upload-pdf', { 
+            method: 'POST', 
+            headers: getAuthHeaders(false), // false = nu punem JSON content-type
+            body: formData 
+        });
+        if (res.status === 401) return logoutAdmin();
         const data = await res.json();
+        
         if(data.status === "success") {
             alert("Incarcat! Nu uita de butonul RE-INDEXARE!");
             fileInput.value = ""; 
@@ -194,12 +270,13 @@ async function uploadPDF() {
 
 async function deleteDocument(filename) {
     if(!confirm(`Stergi fisierul ${filename}?`)) return;
-    await fetch(`/api/documents/${filename}`, { method: 'DELETE' });
+    await fetch(`/api/documents/${filename}`, { method: 'DELETE', headers: getAuthHeaders() });
     loadDocuments(); 
 }
 
 async function loadSources() {
-    const res = await fetch('/api/weblinks');
+    const res = await fetch('/api/weblinks', { headers: getAuthHeaders() });
+    if (res.status === 401) return logoutAdmin();
     const links = await res.json();
     const tbody = document.getElementById('tabel-surse');
     tbody.innerHTML = '';
@@ -214,7 +291,7 @@ async function addLink() {
     
     await fetch('/api/weblinks', { 
         method: 'POST', 
-        headers: {'Content-Type': 'application/json'}, 
+        headers: getAuthHeaders(), 
         body: JSON.stringify({ path: path }) 
     });
     
@@ -224,7 +301,7 @@ async function addLink() {
 
 async function deleteLink(id) {
     if(!confirm("Stergi acest link?")) return;
-    await fetch(`/api/weblinks/${id}`, { method: 'DELETE' });
+    await fetch(`/api/weblinks/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
     loadSources();
 }
 
@@ -234,7 +311,12 @@ async function reindexAI() {
     statusText.style.color = "orange";
     
     try {
-        const res = await fetch('/api/reindex', { method: 'POST' });
+        const res = await fetch('/api/reindex', { 
+            method: 'POST',
+            headers: getAuthHeaders(false) 
+        });
+        
+        if (res.status === 401) return logoutAdmin();
         const data = await res.json();
         
         if (!res.ok) {

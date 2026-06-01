@@ -5,11 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Admin - TUIASI Chatbot</title>
     <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body class="page-dashboard">
 
 <div class="container">
-    <h1>Panou de Administrare Chatbot</h1>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h1>Panou de Administrare Chatbot</h1>
+        <button class="action-btn" style="background-color: #dc3545;" onclick="logoutAdmin()">Deconectare (Logout)</button>
+    </div>
     
     <div class="tabs">
         <button class="tab-btn active" onclick="showSection('istoric')">Istoric Conversatii</button>
