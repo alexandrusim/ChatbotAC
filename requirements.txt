@@ -8,6 +8,7 @@ langchain-huggingface==0.1.0
 langchain-google-genai
 langchain-core==0.3.0
 langchain-groq
+langchain-chroma
 chromadb
 google-generativeai
 pypdf
