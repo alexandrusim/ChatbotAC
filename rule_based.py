@@ -15,7 +15,6 @@ def rule_based_router(message: str, db: Session):
         
     greetings = ["salut", "buna", "hey", "hello", "seara", "ziua", "dimineata"]
     
-
     if any(greet in msg_lower for greet in greetings) and len(cuvinte) <= 3:
         return "Salut! Sunt asistentul virtual pentru admiterea la TUIASI. Cu ce te pot ajuta astazi?"
         
@@ -26,12 +25,18 @@ def rule_based_router(message: str, db: Session):
     # PROCESARE AVANSATA CU spaCy
     doc = nlp(message)
     
+    # Lista de cuvinte 100% curate de semne de punctuatie
+    clean_words = [token.text.lower() for token in doc if not token.is_punct]
     lemmas = [token.lemma_.lower() for token in doc if not token.is_punct]
     
     personal_pronouns = ["eu", "meu", "mea", "mei", "mele", "mie", "mi", "ma", "lui", "ei", "lor"]
-    has_personal_context = any(pronoun in msg_lower for pronoun in personal_pronouns)
+    
+    # Cautam in lista curatata
+    has_personal_context = any(pronoun in clean_words for pronoun in personal_pronouns)
 
-    has_proper_noun = any(token.pos_ == "PROPN" for token in doc)
+    # Ignoram cuvintele de inceput (Care, Ce, Cine) pe care spaCy le confunda cu Nume Proprii
+    cuvinte_interogative = ["care", "ce", "cine", "unde", "cum", "cand"]
+    has_proper_noun = any(token.pos_ == "PROPN" and token.text.lower() not in cuvinte_interogative for token in doc)
 
     rules = db.query(Rule).all()
     

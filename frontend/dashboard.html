@@ -76,9 +76,29 @@
             <tbody id="tabel-documente"></tbody>
         </table>
 
+
         <hr>
 
-        <h2>2. Link-uri Web Scanate</h2>
+        <h2>2. Paragrafe Text (Introduse Manual)</h2>
+        <div class="form-group" style="flex-direction: column; align-items: stretch;">
+            <textarea id="new-text-content" rows="4" placeholder="Lipeste aici un paragraf important, un raspuns la mail sau un fragment de regulament..." style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; resize: vertical;"></textarea>
+            <button class="action-btn" onclick="addTextSnippet()" style="align-self: flex-start;">Adauga Text in Baza de Date</button>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Continut Text</th>
+                    <th style="width: 150px;">Actiuni</th>
+                </tr>
+            </thead>
+            <tbody id="tabel-texte"></tbody>
+        </table>
+
+
+        <hr>
+
+        <h2>3. Link-uri Web Scanate</h2>
         <div class="form-group">
             <input type="text" id="new-link" placeholder="https://admitere.tuiasi.ro/nou...">
             <button class="action-btn" onclick="addLink()">Adauga Link</button>
@@ -97,7 +117,7 @@
 
         <hr>
 
-        <h2>3. Actualizare Inteligenta Artificiala</h2>
+        <h2>4. Actualizare Inteligenta Artificiala</h2>
         <p><i>Atentie: Orice modificare de mai sus (adaugare/stergere PDF sau Link) NU se va aplica pana nu apesi acest buton! Procesul va dura cateva secunde.</i></p>
         <button class="reindex-btn" onclick="reindexAI()">RE-INDEXEAZA BAZA DE DATE AI</button>
         <p id="reindex-status" style="text-align: center; color: red; font-weight: bold; margin-top: 15px; font-size: 18px;"></p>

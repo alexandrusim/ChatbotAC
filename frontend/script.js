@@ -158,6 +158,7 @@ function showSection(id) {
     if(id === 'surse') {
         loadSources();
         loadDocuments();
+        loadTexts();
     }
 }
 
@@ -303,6 +304,61 @@ async function deleteLink(id) {
     if(!confirm("Stergi acest link?")) return;
     await fetch(`/api/weblinks/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
     loadSources();
+}
+
+
+// --- LOGICA PENTRU TEXTE MANUALE ---
+
+async function loadTexts() {
+    const res = await fetch('/api/texts', { headers: getAuthHeaders() });
+    if (res.status === 401) return logoutAdmin();
+    const texts = await res.json();
+    const tbody = document.getElementById('tabel-texte');
+    tbody.innerHTML = '';
+    texts.forEach(t => {
+        let displayContent = t.content.length > 100 ? t.content.substring(0, 100) + "..." : t.content;
+        
+        tbody.innerHTML += `
+        <tr>
+            <td title="${t.content.replace(/"/g, '&quot;')}">${displayContent}</td>
+            <td>
+                <button class="action-btn" style="background-color: #ffc107; color: black; margin-bottom: 5px; width: 100%;" onclick="editTextSnippet(${t.id})">Editeaza</button>
+                <button class="delete-btn" onclick="deleteTextSnippet(${t.id})">Sterge</button>
+            </td>
+        </tr>`;
+    });
+}
+
+async function addTextSnippet() {
+    const content = document.getElementById('new-text-content').value.trim();
+    if (!content) return alert("Textul nu poate fi gol!");
+    
+    await fetch('/api/texts', { 
+        method: 'POST', 
+        headers: getAuthHeaders(), 
+        body: JSON.stringify({ content: content }) 
+    });
+    
+    document.getElementById('new-text-content').value = '';
+    loadTexts();
+}
+
+async function deleteTextSnippet(id) {
+    if(!confirm("Stergi acest paragraf definitiv?")) return;
+    await fetch(`/api/texts/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+    loadTexts();
+}
+
+async function editTextSnippet(id) {
+    const newContent = prompt("Editeaza textul (recomandat pentru modificari mici):");
+    if (newContent === null || newContent.trim() === "") return;
+    
+    await fetch(`/api/texts/${id}`, { 
+        method: 'PUT', 
+        headers: getAuthHeaders(), 
+        body: JSON.stringify({ content: newContent.trim() }) 
+    });
+    loadTexts();
 }
 
 async function reindexAI() {

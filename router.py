@@ -70,6 +70,9 @@ class LinkRequest(BaseModel):
 class FeedbackRequest(BaseModel):
     rating: int
 
+class TextRequest(BaseModel):
+    content: str
+
 # =====================================================================
 # ENDPOINT-URI PENTRU CHAT PUBLIC (Accesibile de catre oricine)
 # =====================================================================
@@ -125,11 +128,8 @@ def submit_feedback(conversation_id: int, feedback: FeedbackRequest, db: Session
 
 # =====================================================================
 # ENDPOINT-URI PENTRU DASHBOARD (PROTEJATE DE JWT)
-# Am adaugat `admin: str = Depends(get_current_admin)` la toate rutele
 # =====================================================================
 
-# HTML-ul dashboard-ului ramane public, 
-# protectia se face in javascript si la nivel de API-uri
 @router.get("/dashboard")
 def serve_dashboard():
     return FileResponse("frontend/dashboard.html")
@@ -148,7 +148,9 @@ def get_logs(db: Session = Depends(get_db), admin: str = Depends(get_current_adm
     ]
     return {"istoric_conversatii": history}
 
-# REGULI FIXE
+# ==========================================
+# GESTIUNE REGULI FIXE
+# ==========================================
 @router.get("/api/rules")
 def get_rules(db: Session = Depends(get_db), admin: str = Depends(get_current_admin)):
     rules = db.query(models.Rule).all()
@@ -174,7 +176,9 @@ def delete_rule(rule_id: int, db: Session = Depends(get_db), admin: str = Depend
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Regula nu a fost gasita.")
 
-# SURSE WEB (LINK-URI)
+# ==========================================
+# GESTIUNE SURSE WEB (LINK-URI)
+# ==========================================
 @router.get("/api/weblinks")
 def get_weblinks(db: Session = Depends(get_db), admin: str = Depends(get_current_admin)):
     links = db.query(models.Weblink).all()
@@ -200,16 +204,46 @@ def delete_weblink(link_id: int, db: Session = Depends(get_db), admin: str = Dep
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Link-ul nu a fost gasit.")
 
-# RE-INDEXARE AI
-@router.post("/api/reindex")
-def reindex_ai(admin: str = Depends(get_current_admin)):
-    try:
-        reindex_ai_knowledge()
-        return {"status": "Re-indexare completata cu succes! AI-ul are acum cunostintele actualizate."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# ==========================================
+# GESTIUNE PARAGRAFE TEXT (MANUALE)
+# ==========================================
+@router.get("/api/texts")
+def get_texts(db: Session = Depends(get_db), admin: str = Depends(get_current_admin)):
+    texts = db.query(models.TextSnippet).all()
+    return [{"id": t.id, "content": t.content} for t in texts]
 
+@router.post("/api/texts")
+def add_text(req: TextRequest, db: Session = Depends(get_db), admin: str = Depends(get_current_admin)):
+    try:
+        new_text = models.TextSnippet(content=req.content)
+        db.add(new_text)
+        db.commit()
+        return {"status": "success"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Eroare la salvarea textului.")
+
+@router.put("/api/texts/{text_id}")
+def update_text(text_id: int, req: TextRequest, db: Session = Depends(get_db), admin: str = Depends(get_current_admin)):
+    snippet = db.query(models.TextSnippet).filter(models.TextSnippet.id == text_id).first()
+    if snippet:
+        snippet.content = req.content
+        db.commit()
+        return {"status": "success"}
+    raise HTTPException(status_code=404, detail="Textul nu a fost gasit.")
+
+@router.delete("/api/texts/{text_id}")
+def delete_text(text_id: int, db: Session = Depends(get_db), admin: str = Depends(get_current_admin)):
+    snippet = db.query(models.TextSnippet).filter(models.TextSnippet.id == text_id).first()
+    if snippet:
+        db.delete(snippet)
+        db.commit()
+        return {"status": "success"}
+    raise HTTPException(status_code=404, detail="Textul nu a fost gasit.")
+
+# ==========================================
 # GESTIUNE DOCUMENTE PDF
+# ==========================================
 @router.get("/api/documents")
 def get_documents(admin: str = Depends(get_current_admin)):
     if not os.path.exists("date"):
@@ -246,3 +280,14 @@ def delete_document(filename: str, admin: str = Depends(get_current_admin)):
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
     raise HTTPException(status_code=404, detail="Fisierul nu a fost gasit.")
+
+# ==========================================
+# RE-INDEXARE AI
+# ==========================================
+@router.post("/api/reindex")
+def reindex_ai(admin: str = Depends(get_current_admin)):
+    try:
+        reindex_ai_knowledge()
+        return {"status": "Re-indexare completata cu succes! AI-ul are acum cunostintele actualizate."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

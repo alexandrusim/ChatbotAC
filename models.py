@@ -25,3 +25,9 @@ class Weblink(Base):
     id = Column(Integer, primary_key=True, index=True)
     type = Column(String(50), default="url")
     path = Column(String(500), unique=True, index=True)
+
+class TextSnippet(Base):
+    __tablename__ = "text_snippets"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    content = Column(Text, nullable=False)

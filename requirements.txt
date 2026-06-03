@@ -10,6 +10,7 @@ langchain-core==0.3.0
 langchain-groq
 langchain-chroma
 chromadb
+posthog<6.0.0
 google-generativeai
 pypdf
 requests
