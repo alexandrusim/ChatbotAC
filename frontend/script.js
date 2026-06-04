@@ -2,7 +2,6 @@
 // 1. SECURITATE SI AUTENTIFICARE (JWT)
 // ==========================================
 
-// Verificam daca utilizatorul are voie sa fie pe dashboard
 if (window.location.pathname.includes("dashboard")) {
     const token = localStorage.getItem("admin_token");
     if (!token) {
@@ -10,7 +9,13 @@ if (window.location.pathname.includes("dashboard")) {
     }
 }
 
-// Functie helper pentru a pune token-ul in header-ul cererilor
+if (window.location.pathname.includes("login")) {
+    const token = localStorage.getItem("admin_token");
+    if (token) {
+        window.location.href = "/dashboard";
+    }
+}
+
 function getAuthHeaders(isJson = true) {
     const headers = {
         "Authorization": `Bearer ${localStorage.getItem("admin_token")}`
@@ -19,12 +24,26 @@ function getAuthHeaders(isJson = true) {
     return headers;
 }
 
-// Functie pentru Login
 async function doLogin() {
+    // Extragem datele EXACT asa cum au fost tastate (fara trim)
     const user = document.getElementById("username").value;
     const pass = document.getElementById("password").value;
     const errorMsg = document.getElementById("error-msg");
     
+    // ==========================================
+    // VALIDARE FRONTEND
+    // ==========================================
+    if (!user || !pass) {
+        errorMsg.innerText = " Te rog să completezi ambele câmpuri!";
+        return; // Opreste executia functiei aici
+    }
+
+    if (user.length < 3 || pass.length < 3) {
+        errorMsg.innerText = " Datele introduse sunt prea scurte!";
+        return;
+    }
+    // ==========================================
+
     const formData = new URLSearchParams();
     formData.append("username", user);
     formData.append("password", pass);
@@ -39,12 +58,12 @@ async function doLogin() {
         if (res.ok) {
             const data = await res.json();
             localStorage.setItem("admin_token", data.access_token);
-            window.location.href = "/dashboard"; // Ruta din FastAPI catre dashboard
+            window.location.href = "/dashboard"; 
         } else {
-            errorMsg.innerText = "Utilizator sau parolă incorecte!";
+            errorMsg.innerText = " Utilizator sau parolă incorecte!";
         }
     } catch (e) {
-        errorMsg.innerText = "Eroare de conexiune cu serverul.";
+        errorMsg.innerText = " Eroare de conexiune cu serverul.";
     }
 }
 
@@ -52,7 +71,6 @@ function handleEnterLogin(event) {
     if (event.key === "Enter") doLogin();
 }
 
-// Functie pentru Logout
 function logoutAdmin() {
     localStorage.removeItem("admin_token");
     window.location.href = "/static/login.html";
@@ -150,6 +168,7 @@ async function sendFeedback(conversationId, rating, btnElement) {
 function showSection(id) {
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    
     document.getElementById(id).classList.add('active');
     event.target.classList.add('active');
 
@@ -251,7 +270,7 @@ async function uploadPDF() {
     try {
         const res = await fetch('/api/upload-pdf', { 
             method: 'POST', 
-            headers: getAuthHeaders(false), // false = nu punem JSON content-type
+            headers: getAuthHeaders(false),
             body: formData 
         });
         if (res.status === 401) return logoutAdmin();
@@ -307,7 +326,9 @@ async function deleteLink(id) {
 }
 
 
+// ==========================================
 // --- LOGICA PENTRU TEXTE MANUALE ---
+// ==========================================
 
 async function loadTexts() {
     const res = await fetch('/api/texts', { headers: getAuthHeaders() });
@@ -320,10 +341,15 @@ async function loadTexts() {
         
         tbody.innerHTML += `
         <tr>
-            <td title="${t.content.replace(/"/g, '&quot;')}">${displayContent}</td>
+            <td title="${t.content.replace(/"/g, '&quot;')}">
+                ${displayContent}
+                <div id="full-text-${t.id}" style="display:none;">${t.content}</div>
+            </td>
             <td>
-                <button class="action-btn" style="background-color: #ffc107; color: black; margin-bottom: 5px; width: 100%;" onclick="editTextSnippet(${t.id})">Editeaza</button>
-                <button class="delete-btn" onclick="deleteTextSnippet(${t.id})">Sterge</button>
+                <div class="action-buttons-container">
+                    <button class="icon-btn edit" onclick="openEditModal(${t.id})" title="Editează textul">✏️</button>
+                    <button class="icon-btn delete" onclick="deleteTextSnippet(${t.id})" title="Șterge textul">❌</button>
+                </div>
             </td>
         </tr>`;
     });
@@ -349,17 +375,134 @@ async function deleteTextSnippet(id) {
     loadTexts();
 }
 
-async function editTextSnippet(id) {
-    const newContent = prompt("Editeaza textul (recomandat pentru modificari mici):");
-    if (newContent === null || newContent.trim() === "") return;
-    
-    await fetch(`/api/texts/${id}`, { 
-        method: 'PUT', 
-        headers: getAuthHeaders(), 
-        body: JSON.stringify({ content: newContent.trim() }) 
-    });
-    loadTexts();
+function openEditModal(id) {
+    const curentText = document.getElementById('full-text-' + id).innerText;
+    document.getElementById('editSnippetId').value = id;
+    document.getElementById('editTextarea').value = curentText;
+    document.getElementById('editModal').style.display = 'block';
 }
+
+function closeEditModal() {
+    document.getElementById('editModal').style.display = 'none';
+}
+
+async function saveEdit() {
+    const id = document.getElementById('editSnippetId').value;
+    const newText = document.getElementById('editTextarea').value.trim();
+    
+    if (!newText) {
+        alert("Textul nu poate fi gol!");
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/texts/${id}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ content: newText })
+        });
+        
+        if (response.ok) {
+            closeEditModal();
+            loadTexts(); 
+        } else {
+            alert('Eroare la salvarea textului.');
+        }
+    } catch (error) {
+        console.error('Eroare:', error);
+    }
+}
+
+
+// ==========================================
+// --- LOGICA NOUA PENTRU MAILURI SECRETARIAT ---
+// ==========================================
+
+async function generateEmailResponse() {
+    const receivedBox = document.getElementById('email-received');
+    const responseBox = document.getElementById('email-response');
+    const textMail = receivedBox.value.trim();
+    
+    if (!textMail) {
+        alert("Te rog adaugă textul mailului primit înainte de a genera un răspuns!");
+        return;
+    }
+
+    responseBox.value = "AI-ul analizează și generează un răspuns oficial... ⏳";
+
+    try {
+        const response = await fetch("/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: textMail }) // Trimitem direct textul mail-ului
+        });
+
+        const data = await response.json();
+        
+        if (response.ok) {
+            responseBox.value = data.answer;
+        } else {
+            responseBox.value = "A apărut o eroare pe server în timpul generării.";
+        }
+    } catch (error) {
+        console.error("Eroare la generare email:", error);
+        responseBox.value = "Eroare de conexiune cu AI-ul.";
+    }
+}
+
+function openEmailModal() {
+    const intrebare = document.getElementById('email-received').value.trim();
+    const raspuns = document.getElementById('email-response').value.trim();
+
+    if (!intrebare || !raspuns) {
+        alert("Ambele căsuțe trebuie să fie completate pentru a adăuga conversația în baza de date!");
+        return;
+    }
+
+    document.getElementById('preview-question').innerText = intrebare;
+    document.getElementById('preview-answer').innerText = raspuns;
+    
+    document.getElementById('confirmEmailModal').style.display = 'block';
+}
+
+function closeConfirmEmailModal() {
+    document.getElementById('confirmEmailModal').style.display = 'none';
+}
+
+async function submitEmailSource() {
+    // se ia doar raspunsul
+    const raspuns = document.getElementById('preview-answer').innerText;
+
+    try {
+        const response = await fetch('/api/texts', { 
+            method: 'POST', 
+            headers: getAuthHeaders(), 
+            body: JSON.stringify({ content: raspuns }) // Trimite doar textul curat
+        });
+        
+        if (response.ok) {
+            closeConfirmEmailModal();
+            alert("Răspunsul a fost salvat ca sursă cu succes! Nu uita de butonul de RE-INDEXARE.");
+            
+            // Golire casute dupa succes
+            document.getElementById('email-received').value = '';
+            document.getElementById('email-response').value = '';
+            
+            // Actualizare tabel din fundal
+            loadTexts();
+        } else {
+            alert("Eroare la salvarea în baza de date.");
+        }
+    } catch (error) {
+        console.error("Eroare:", error);
+        alert("Eroare de conexiune.");
+    }
+}
+
+
+// ==========================================
+// RE-INDEXARE AI
+// ==========================================
 
 async function reindexAI() {
     const statusText = document.getElementById('reindex-status');

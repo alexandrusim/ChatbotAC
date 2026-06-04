@@ -238,7 +238,8 @@ def get_ai_response(user_message: str):
         "3. Cand esti intrebat de 'acte' sau 'dosar', enumera doar documentele de baza.\n"
         "4. Raspunde cu incredere! Daca informatia lipseste COMPLET din context, spune: 'Nu am gasit aceasta informatie in documentele oficiale actuale. Pentru intrebari specifice, te rugam sa ne contactezi la adresa de email: admitere.ac@groups.tuiasi.ro'.\n"
         "5. IMPORTANT: Scrie formulele matematice in format text simplu (ex: Rezultat = 0.5 * A + 0.5 * B). NU folosi formatare LaTeX si NU pune semnele $.\n"
-        "6. Nu confunda acronimele: 'MA' înseamnă Media de Admitere, iar 'NTG' înseamnă Nota la Testul Grilă. Sunt concepte complet diferite.\n\n"
+        "6. Nu confunda acronimele: 'MA' înseamnă Media de Admitere, iar 'NTG' înseamnă Nota la Testul Grilă. Sunt concepte complet diferite.\n"
+        "7. REGULA DE SECURITATE (GDPR): NU include si NU repeta in raspunsul tau date personale sensibile oferite de utilizator (ex: nume complet, CNP, adresa, numar de telefon, adresa de email).\n\n"
         "Context extras din documente:\n{context}"
     )
 
