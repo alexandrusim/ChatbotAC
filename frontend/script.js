@@ -105,7 +105,7 @@ async function sendMessage() {
         let sourceHtml = `<span class="source-tag">Sursa: ${data.source}</span>`;
         
         let feedbackHtml = "";
-        if (data.conversation_id) {
+        if (data.conversation_id && data.source !== "rule-based") {
             feedbackHtml = `
                 <div class="feedback-container" id="feedback-${data.conversation_id}">
                     <button class="star-btn" onclick="sendFeedback(${data.conversation_id}, 1, this)" title="1 Stea">⭐</button>

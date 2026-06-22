@@ -86,7 +86,7 @@ def serve_frontend():
     return FileResponse("frontend/index.html")
 
 @router.post("/chat")
-async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
+def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
     user_message = request.message
     
     if not user_message.strip():
@@ -120,6 +120,10 @@ def submit_feedback(conversation_id: int, feedback: FeedbackRequest, db: Session
     conv = db.query(models.Conversation).filter(models.Conversation.id == conversation_id).first()
     if not conv:
         raise HTTPException(status_code=404, detail="Conversatia nu a fost gasita.")
+        
+    if conv.source == "rule-based":
+        return {"message": "Ratingul este dezactivat pentru raspunsurile predefinite."}
+
         
     conv.rating = feedback.rating
     db.commit()
@@ -252,7 +256,7 @@ def get_documents(admin: str = Depends(get_current_admin)):
     return [{"filename": f} for f in files]
 
 @router.post("/api/upload-pdf")
-async def upload_pdf(file: UploadFile = File(...), admin: str = Depends(get_current_admin)):
+def upload_pdf(file: UploadFile = File(...), admin: str = Depends(get_current_admin)):
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Doar fisierele PDF sunt permise.")
     

@@ -2,6 +2,7 @@ import os
 import random
 import spacy
 import chromadb
+import threading # <--- Adaugat pentru rezolvarea Race Condition (Locust)
 from chromadb.config import Settings
 from dotenv import load_dotenv
 
@@ -30,18 +31,19 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 _embeddings_model = None
 vectorstore = None
 _nlp_spacy = None
+_rag_lock = threading.Lock() # <--- Lacatul pentru Thread-Safety
 
 def get_embeddings():
     global _embeddings_model
     if _embeddings_model is None:
-        print(">> [RAG] Se incarca modelul de Embeddings in memorie...")
+        print(">> [RAG] Se incarca modelul de Embeddings...")
         _embeddings_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     return _embeddings_model
 
 def get_spacy():
     global _nlp_spacy
     if _nlp_spacy is None:
-        print(">> [RAG] Se incarca modelul NLP spaCy pentru interceptare...")
+        print(">> [RAG] Se incarca modelul NLP spaCy...")
         _nlp_spacy = spacy.load("ro_core_news_sm")
     return _nlp_spacy
 # ==============================================================
@@ -102,7 +104,7 @@ def get_roulette_wheel_llm():
     
     if GOOGLE_API_KEY:
         population["Gemini 3.5 Flash"] = ChatGoogleGenerativeAI(model="gemini-3.5-flash", temperature=0.3)
-        population["Gemini 3.0 Flash (preview)"] = ChatGoogleGenerativeAI(model="gemini-3-flash-preview", temperature=0.3)
+        population["Gemini 3.0 Flash"] = ChatGoogleGenerativeAI(model="gemini-3-flash", temperature=0.3)
         population["Gemini 3.1 Flash Lite"] = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite", temperature=0.3)
     
     if GROQ_API_KEY:
@@ -197,27 +199,32 @@ def reindex_ai_knowledge():
     global vectorstore
     print(">> Start Re-indexing...")
     
-    # Eliberam lock-ul din RAM inainte de a sterge datele
-    if vectorstore is not None:
-        vectorstore = None
+    with _rag_lock: # <--- Securizam procesul de rescriere a bazei de date ChromaDB
+        # Eliberam lock-ul din RAM inainte de a sterge datele
+        if vectorstore is not None:
+            vectorstore = None
+            
+        vectorstore = create_new_vectorstore()
         
-    vectorstore = create_new_vectorstore()
     print(">> Re-indexing finished successfully!")
 
 def get_ai_response(user_message: str):
     global vectorstore
     
+    # <--- Pattern-ul Double-Checked Locking pentru stabilitate sub stress --->
     if vectorstore is None:
-        if os.path.exists("./chroma_db"):
-            print(">> [RAG] Incarcam memoria AI direct de pe disc (foarte rapid)...")
-            vectorstore = Chroma(
-                persist_directory="./chroma_db", 
-                embedding_function=get_embeddings(),
-                client_settings=Settings(anonymized_telemetry=False)
-            )
-        else:
-            print(">> [RAG] Memoria lipseste. Se porneste re-indexarea automata...")
-            vectorstore = create_new_vectorstore()
+        with _rag_lock: # Blocăm celelalte thread-uri pana cand se termina incarcarea
+            if vectorstore is None: # Verificăm din nou dupa ce am primit accesul
+                if os.path.exists("./chroma_db"):
+                    print(">> [RAG] Incarcam memoria AI direct de pe disc (foarte rapid)...")
+                    vectorstore = Chroma(
+                        persist_directory="./chroma_db", 
+                        embedding_function=get_embeddings(),
+                        client_settings=Settings(anonymized_telemetry=False)
+                    )
+                else:
+                    print(">> [RAG] Memoria lipseste. Se porneste re-indexarea automata...")
+                    vectorstore = create_new_vectorstore()
 
     mesaj_procesat = corecteaza_vocabular_student(user_message)
     if mesaj_procesat != user_message.lower():

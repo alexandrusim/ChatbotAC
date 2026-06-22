@@ -13,7 +13,7 @@ def rule_based_router(message: str, db: Session):
         
     cuvinte = msg_lower.split()
         
-    greetings = ["salut", "buna", "hey", "hello", "seara", "ziua", "dimineata"]
+    greetings = ["salut", "sal", "buna", "hey", "hello", "seara", "ziua", "dimineata", "neata", "hei", "hi"]
     
     if any(greet in msg_lower for greet in greetings) and len(cuvinte) <= 3:
         return "Salut! Sunt asistentul virtual pentru admiterea la TUIASI. Cu ce te pot ajuta astazi?"

@@ -129,7 +129,7 @@
             
             <div style="display: flex; flex-direction: column;">
                 <h2 style="margin-bottom: 10px; color: #004b87;">Mail primit</h2>
-                <textarea id="email-received" style="width: 100%; height: 200px; padding: 15px; border-radius: 8px; border: 2px solid #ccc; font-family: inherit; font-size: 15px; resize: vertical;" placeholder="Copiaza aici textul mailului primit de la student..."></textarea>
+                <textarea id="email-received" style="width: 100%; height: 200px; padding: 15px; border-radius: 8px; border: 2px solid #ccc; font-family: inherit; font-size: 15px; resize: none; box-sizing: border-box;" placeholder="Copiaza aici textul mailului primit de la student..."></textarea>
             </div>
 
             <div style="display: flex; flex-direction: column;">
@@ -137,10 +137,10 @@
                     <h2 style="margin: 0; color: #004b87;">Mail de trimis</h2>
                     <button class="action-btn" style="background-color: #004b87; font-size: 16px; padding: 10px 20px;" onclick="generateEmailResponse()">Genereaza raspuns AI</button>
                 </div>
-                <textarea id="email-response" style="width: 100%; height: 250px; padding: 15px; border-radius: 8px; border: 2px solid #28a745; font-family: inherit; font-size: 15px; resize: vertical;" placeholder="Aici va aparea automat raspunsul curatat de date personale..."></textarea>
+                <textarea id="email-response" style="width: 100%; height: 250px; padding: 15px; border-radius: 8px; border: 2px solid #28a745; font-family: inherit; font-size: 15px; resize: none; box-sizing: border-box;" placeholder="Aici va aparea automat raspunsul curatat de date personale..."></textarea>
             </div>
 
-            <button class="action-btn" style="background-color: #17a2b8; padding: 15px; font-size: 18px; margin-top: 10px;" onclick="openEmailModal()">📥 Adauga conversatia ca sursa AI in baza de date</button>
+            <button class="action-btn" style="background-color: #17a2b8; padding: 15px; font-size: 18px; margin-top: 10px;" onclick="openEmailModal()">Adauga conversatia ca sursa AI in baza de date</button>
             
         </div>
     </div>

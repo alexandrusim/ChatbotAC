@@ -7,7 +7,7 @@ API_URL = "http://localhost:8000/chat"
 # Setul de date controlat
 standard_queries = [
     "Care este numarul de telefon de la secretariat?",
-    "Unde se afla facultatea?",
+    "Care este adresa facultatii?",
     "Care este programul secretariatului?",
     "Vreau adresa de email pentru admitere.",
     "Cum contactez facultatea?"
@@ -33,12 +33,15 @@ def run_benchmark():
         response = requests.post(API_URL, json={"message": query}) 
         end_time = time.time()
         
+        
         if response.status_code == 200:
             latency = (end_time - start_time) * 1000 # conversie in milisecunde
             standard_times.append(latency)
             print(f"[{latency:.2f} ms] {query}")
         else:
             print(f"Eroare {response.status_code}: {response.text} la: {query}")
+            
+        time.sleep(3)
             
     # 2. Testare Ruta Probabilistica (RAG + LLM)
     print("\n--- Testare intrebari Complexe (RAG + LLM) ---")
