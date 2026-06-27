@@ -206,6 +206,7 @@ td {
 th {
     background: #004b87;
     color: white;
+    border: 1px solid #004b87; 
 }
 
 .form-group {

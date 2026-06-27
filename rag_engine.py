@@ -25,19 +25,24 @@ load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
+# Calea si numele colectiei sunt definite o singura data, pentru consistenta
+CHROMA_PATH = "./chroma_db"
+COLLECTION_NAME = "langchain"
+
 # ==============================================================
 # Sistem de Lazy Loading pentru modelele grele
 # ==============================================================
 _embeddings_model = None
 vectorstore = None
 _nlp_spacy = None
+_chroma_client = None  # <--- Clientul persistent unic
 _rag_lock = threading.Lock() # <--- Lacatul pentru Thread-Safety
 
 def get_embeddings():
     global _embeddings_model
     if _embeddings_model is None:
         print(">> [RAG] Se incarca modelul de Embeddings...")
-        _embeddings_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        _embeddings_model = HuggingFaceEmbeddings(model_name="paraphrase-multilingual-MiniLM-L12-v2")
     return _embeddings_model
 
 def get_spacy():
@@ -46,6 +51,17 @@ def get_spacy():
         print(">> [RAG] Se incarca modelul NLP spaCy...")
         _nlp_spacy = spacy.load("ro_core_news_sm")
     return _nlp_spacy
+
+def get_chroma_client():
+    """Returneaza un singur client ChromaDB persistent (scrie GARANTAT pe disc)."""
+    global _chroma_client
+    if _chroma_client is None:
+        print(">> [RAG] Se initializeaza clientul ChromaDB persistent...")
+        _chroma_client = chromadb.PersistentClient(
+            path=CHROMA_PATH,
+            settings=Settings(anonymized_telemetry=False)
+        )
+    return _chroma_client
 # ==============================================================
 
 def corecteaza_vocabular_student(mesaj: str) -> str:
@@ -104,7 +120,7 @@ def get_roulette_wheel_llm():
     
     if GOOGLE_API_KEY:
         population["Gemini 3.5 Flash"] = ChatGoogleGenerativeAI(model="gemini-3.5-flash", temperature=0.3)
-        population["Gemini 3.0 Flash"] = ChatGoogleGenerativeAI(model="gemini-3-flash", temperature=0.3)
+        population["Gemini 3.0 Flash (preview)"] = ChatGoogleGenerativeAI(model="gemini-3-flash-preview", temperature=0.3)
         population["Gemini 3.1 Flash Lite"] = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite", temperature=0.3)
     
     if GROQ_API_KEY:
@@ -119,9 +135,12 @@ def get_roulette_wheel_llm():
     model_names = list(population.keys())
     roulette_weights = []
     
+    SHARPNESS = 2  # exponentul care accentueaza modelele cu rating bun
+
     for name in model_names:
+        # Scor neutru 3.0 pentru modelele inca neevaluate
         score = current_fitness.get(name, 3.0)
-        roulette_weights.append(score)
+        roulette_weights.append(score ** SHARPNESS)
 
     winning_model = random.choices(model_names, weights=roulette_weights, k=1)[0]
     
@@ -172,14 +191,10 @@ def create_new_vectorstore():
 
     print(f">> Building AI memory on DISK ({len(splits)} chunks)...")
     
-    # REPARATIA SUPREMA: Stergem elegant continutul bazei de date (fara sa stergem folderul)
-    # INJECTAM SETTINGS: Oprim telemetria la instantierea clientului
+    # Folosim acelasi client persistent. Stergem colectia veche daca exista.
+    client = get_chroma_client()
     try:
-        client = chromadb.PersistentClient(
-            path="./chroma_db",
-            settings=Settings(anonymized_telemetry=False)
-        )
-        client.delete_collection("langchain")
+        client.delete_collection(COLLECTION_NAME)
         print(">> [RAG] Memoria veche a fost golita curat din baza de date.")
     except Exception:
         # Prima rulare sau colectie inexistenta
@@ -188,8 +203,8 @@ def create_new_vectorstore():
     return Chroma.from_documents(
         documents=splits, 
         embedding=get_embeddings(),
-        persist_directory="./chroma_db",
-        client_settings=Settings(anonymized_telemetry=False)
+        client=client,
+        collection_name=COLLECTION_NAME,
     )
 
 def format_docs(docs):
@@ -215,12 +230,15 @@ def get_ai_response(user_message: str):
     if vectorstore is None:
         with _rag_lock: # Blocăm celelalte thread-uri pana cand se termina incarcarea
             if vectorstore is None: # Verificăm din nou dupa ce am primit accesul
-                if os.path.exists("./chroma_db"):
+                client = get_chroma_client()
+                # Verificam daca exista deja o colectie cu date pe disc
+                existing_collections = [c.name for c in client.list_collections()]
+                if COLLECTION_NAME in existing_collections:
                     print(">> [RAG] Incarcam memoria AI direct de pe disc (foarte rapid)...")
                     vectorstore = Chroma(
-                        persist_directory="./chroma_db", 
+                        client=client,
                         embedding_function=get_embeddings(),
-                        client_settings=Settings(anonymized_telemetry=False)
+                        collection_name=COLLECTION_NAME,
                     )
                 else:
                     print(">> [RAG] Memoria lipseste. Se porneste re-indexarea automata...")
@@ -234,19 +252,21 @@ def get_ai_response(user_message: str):
     winning_model_name, llm = get_roulette_wheel_llm()
     print(f">> Processing question with model: {winning_model_name}")
 
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 12})
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 6})
+
+
 
     system_prompt = (
         "Esti un asistent util, prietenos si concis pentru admiterea la facultate (TUIASI). "
-        "Raspunde la intrebari STRICT pe baza contextului furnizat mai jos.\n\n"
+        "Ai voie sa raspunzi STRICT si DOAR pe baza contextului furnizat mai jos. NU folosi cunostintele tale anterioare.\n\n"
         "REGULI IMPORTANTE DE COMPORTAMENT:\n"
         "1. Fii foarte SCURT si LA OBIECT. Foloseste liste cu liniuta (bullet points).\n"
         "2. PRIORITIZEAZA candidatii standard (cetateni romani, absolventi de liceu in Romania).\n"
         "3. Cand esti intrebat de 'acte' sau 'dosar', enumera doar documentele de baza.\n"
-        "4. Raspunde cu incredere! Daca informatia lipseste COMPLET din context, spune: 'Nu am gasit aceasta informatie in documentele oficiale actuale. Pentru intrebari specifice, te rugam sa ne contactezi la adresa de email: admitere.ac@groups.tuiasi.ro'.\n"
-        "5. IMPORTANT: Scrie formulele matematice in format text simplu (ex: Rezultat = 0.5 * A + 0.5 * B). NU folosi formatare LaTeX si NU pune semnele $.\n"
+        "4. REGULA ANTI-HALUCINATIE: Daca informatia solicitata nu se regaseste clar in contextul de mai jos, NU INCERCA sa ghicesti si NU inventa formule/date. Trebuie sa raspunzi EXACT si DOAR cu textul urmator: 'Nu am gasit aceasta informatie in documentele oficiale actuale. Pentru intrebari specifice, te rugam sa ne contactezi la adresa de email: admitere.ac@groups.tuiasi.ro'. Nu adauga nicio alta propozitie.\n"
+        "5. IMPORTANT: Daca gasesti formulele matematice in context, scrie-le in format text simplu (ex: Rezultat = 0.5 * A + 0.5 * B). NU folosi formatare LaTeX si NU pune semnele $.\n"
         "6. Nu confunda acronimele: 'MA' înseamnă Media de Admitere, iar 'NTG' înseamnă Nota la Testul Grilă. Sunt concepte complet diferite.\n"
-        "7. REGULA DE SECURITATE (GDPR): NU include si NU repeta in raspunsul tau date personale sensibile oferite de utilizator (ex: nume complet, CNP, adresa, numar de telefon, adresa de email).\n\n"
+        "7. REGULA DE SECURITATE (GDPR): NU include si NU repeta in raspunsul tau date personale sensibile oferite de utilizator.\n\n"
         "Context extras din documente:\n{context}"
     )
 
@@ -270,9 +290,9 @@ def get_ai_response(user_message: str):
         print(f"\n>> [!] EROARE LA MODELUL {winning_model_name}: {e}")
         
         if "Llama" in winning_model_name:
-            print(">> [!] INITIEZ FALLBACK SILENTIOS catre Gemini 2.5 Flash...\n")
-            fallback_name = "Gemini 2.5 Flash [FALLBACK]"
-            fallback_llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.3)
+            print(">> [!] INITIEZ FALLBACK SILENTIOS catre Gemini 3.5 Flash...\n")
+            fallback_name = "Gemini 3.5 Flash [FALLBACK]"
+            fallback_llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", temperature=0.3)
             
         else:
             print(">> [!] INITIEZ FALLBACK SILENTIOS catre Llama 3.1 (8B)...\n")

@@ -35,6 +35,8 @@ services:
       - HF_TOKEN=${HF_TOKEN}
     volumes:
       - ./date:/app/date
-      - ./chroma_db:/app/chroma_db
+      - chroma_ai_data:/app/chroma_db    
+
 volumes:
   db_data:
+  chroma_ai_data:                       

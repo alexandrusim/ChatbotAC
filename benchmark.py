@@ -1,10 +1,8 @@
 import time
 import requests
 
-# URL-ul endpoint-ului tau de chat (asigura-te ca portul si ruta sunt corecte)
 API_URL = "http://localhost:8000/chat" 
 
-# Setul de date controlat
 standard_queries = [
     "Care este numarul de telefon de la secretariat?",
     "Care este adresa facultatii?",
@@ -29,13 +27,12 @@ def run_benchmark():
     standard_times = []
     for query in standard_queries:
         start_time = time.time()
-        # Modifica payload-ul JSON in functie de cum l-ai definit in FastAPI
         response = requests.post(API_URL, json={"message": query}) 
         end_time = time.time()
         
         
         if response.status_code == 200:
-            latency = (end_time - start_time) * 1000 # conversie in milisecunde
+            latency = (end_time - start_time) * 1000 # conversie milisecunde
             standard_times.append(latency)
             print(f"[{latency:.2f} ms] {query}")
         else:
@@ -52,7 +49,7 @@ def run_benchmark():
         end_time = time.time()
         
         if response.status_code == 200:
-            latency = end_time - start_time # lasam in secunde
+            latency = end_time - start_time 
             complex_times.append(latency)
             print(f"[{latency:.2f} s] {query}")
         else:
@@ -67,7 +64,6 @@ def run_benchmark():
     print(f"Latenta Medie RAG + LLM:  {avg_complex:.2f} secunde")
     
     # Calcul Eficienta Tokeni
-    # Presupunem ca un context RAG + raspuns Gemini consuma in medie 500 tokeni
     tokens_saved = len(standard_queries) * 500 
     print(f"\nEficienta Router-ului Semantic:")
     print(f"S-au evitat apeluri LLM pentru {len(standard_queries)} interogari.")

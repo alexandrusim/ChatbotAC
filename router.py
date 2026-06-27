@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, File, UploadFile, Depends, status
 from fastapi.responses import FileResponse 
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -69,6 +69,13 @@ class LinkRequest(BaseModel):
     
 class FeedbackRequest(BaseModel):
     rating: int
+
+    @field_validator("rating")
+    @classmethod
+    def valid_rating(cls, v):
+        if not (1 <= v <= 5):
+            raise ValueError("Rating invalid: trebuie sa fie intre 1 si 5.")
+        return v
 
 class TextRequest(BaseModel):
     content: str
