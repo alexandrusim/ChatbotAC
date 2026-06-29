@@ -1,13 +1,23 @@
+# Virtualenvs
 .venv/
+.venv_eval/
 venv/
 env/
+
+# Python noise
 __pycache__/
-*.db
-*.sqlite3
-chatbot_logs.db
+*.pyc
+
+# Local data / indexes (supplied at runtime or rebuilt)
 chroma_db/
 chroma_db_test/
-date/
+*.db
+*.sqlite3
+
+# Secrets (injected via docker compose env)
 .env
+
+# Dev-only / not needed in image
 benchmark.py
 wordpress_test/
+.git/

@@ -2,6 +2,8 @@
 .venv/
 venv/
 env/
+.venv_eval/
+
 
 # Fisiere de configurare si parole
 .env

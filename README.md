@@ -2,23 +2,23 @@
 
 Acesta este un sistem inteligent de asistență virtuală pentru informații despre admiterea la Facultatea de Automatică și Calculatoare (TUIASI) din cadrul Universității Tehnice "Gheorghe Asachi" din Iași.
 
-Sistemul a fost proiectat pe o arhitectură Enterprise bazată pe containere (Docker) și integrează algoritmi dinamici de rutare a modelelor de limbaj, procesare de limbaj natural (NLP) și generare augmentată prin recuperare (RAG).
+Sistemul a fost proiectat pe o arhitectură bazată pe containere (Docker) și integrează algoritmi dinamici de rutare a modelelor de limbaj, procesare de limbaj natural (NLP) și generare augmentată prin recuperare (RAG).
 
-## 🚀 Arhitectură și Funcționalități Cheie
+##  Arhitectură și Funcționalități Cheie
 
 Aplicația utilizează un sistem hibrid, securizat și adaptiv de răspunsuri:
 
-- **Sistem RAG (Retrieval-Augmented Generation) Optimizat**: Utilizează LangChain și ChromaDB (cu persistență pe disc) pentru indexarea vectorială a contextului (k=12). Suportă citirea din PDF-uri, Web Scraping (URL-uri) și texte introduse manual.
-- **Lazy Loading & Persistență**: Baza de date vectorială și modelele grele (Embeddings, NLP) nu se încarcă la pornirea serverului pentru a economisi resurse, ci sunt stocate local (`./chroma_db`) și încărcate la cerere.
-- **Interceptor Semantic (spaCy)**: Traduce automat „limbajul studențesc” în termeni academici oficiali (ex: transformă *"nota de admitere"* în *"media de admitere"*) înainte de a interoga AI-ul, crescând drastic precizia răspunsurilor.
-- **Roulette Wheel Selection (Algoritm Genetic)**: Selecția modelului LLM la fiecare interogare se face dinamic, proporțional cu scorul de "fitness" (media notelor de feedback primite de la utilizatori 1-5 stele).
+- **Sistem RAG (Retrieval-Augmented Generation) Optimizat**: Utilizează LangChain și ChromaDB (cu persistență pe disc, prin `PersistentClient`) pentru indexarea vectorială a contextului (k=12). Embeddings-urile sunt generate local cu modelul `paraphrase-multilingual-MiniLM-L12-v2` (HuggingFace). Suportă citirea din PDF-uri, Web Scraping (URL-uri) și texte introduse manual.
+- **Lazy Loading & Persistență**: Baza de date vectorială și modelele grele (Embeddings, NLP) nu se încarcă la pornirea serverului pentru a economisi resurse, ci sunt stocate local (`./chroma_db`) și încărcate la cerere (cold start), protejate de un mecanism Double-Checked Locking pentru siguranța firelor de execuție.
+- **Interceptor Semantic (spaCy)**: Traduce automat „limbajul studențesc” în termeni academici oficiali (ex: transformă *"nota de admitere"* în *"media de admitere"*) înainte de a interoga AI-ul, crescând precizia răspunsurilor.
+- **Roulette Wheel Selection**: Selecția modelului LLM la fiecare interogare se face dinamic, proporțional cu scorul de "fitness" (media notelor de feedback primite de la utilizatori, pe o scară de 1-5 stele), ascuțit printr-un factor de putere (`SHARPNESS`) pentru a favoriza modelele cu performanță mai bună, păstrând totuși explorarea.
 - **Cross-Provider Silent Fallback (High Availability)**: Dacă un model (ex: Google Gemini) atinge limitele de acces sau returnează o eroare, cererea este rutată invizibil către un model de rezervă (ex: Groq Llama), garantând funcționarea continuă fără erori în interfață.
-- **Modul Secretariat (Generare E-mailuri)**: Un instrument intern pentru personalul administrativ ce generează automat răspunsuri oficiale la e-mailurile studenților, incluzând protecție strictă GDPR integrată în prompt pentru filtrarea datelor cu caracter personal (CNP, Nume, Telefon etc.).
+- **Modul Secretariat (Generare E-mailuri)**: Un instrument intern pentru personalul administrativ ce generează automat răspunsuri oficiale la e-mailurile studenților, incluzând protecție GDPR la nivel de prompt pentru filtrarea datelor cu caracter personal (CNP, Nume, Telefon etc.).
 - **Securitate JWT**: Panoul de administrare este complet protejat prin autentificare cu token-uri JSON Web Tokens.
 
 ---
 
-## 💻 Cerințe Sistem
+##  Cerințe Sistem
 
 Sistemul backend este complet containerizat. Nu este necesară instalarea locală a limbajului Python sau a bazelor de date.
 - **Docker Desktop** (sau Docker Engine & Docker Compose)
@@ -27,12 +27,12 @@ Sistemul backend este complet containerizat. Nu este necesară instalarea local�
 
 ---
 
-## 🛠️ Instalare și Configurare
+##  Instalare și Configurare
 
-1. Clonează repository-ul proiectului în calculatorul tău.
+1. Clonează / dezarhivează proiectul pe calculatorul tău.
 2. Creează un fișier `.env` în directorul rădăcină al proiectului (lângă `docker-compose.yml`) și adaugă variabilele de mediu obligatorii:
 
-   ```env
+```env
    # API Keys (Inteligenta Artificiala)
    GOOGLE_API_KEY=cheia_ta_google_aici
    GROQ_API_KEY=cheia_ta_groq_aici
@@ -48,29 +48,31 @@ Sistemul backend este complet containerizat. Nu este necesară instalarea local�
    DB_USER=tuiasi_user
    DB_PASSWORD=parola_user_dorita
    DB_DATABASE=chatbot_db
-   ```
+```
 
 3. Plasează documentele PDF oficiale (ex: regulamentul de admitere) în folderul `date/`.
 
 ---
 
-## ⚙️ Rularea Serverului (Docker)
+##  Rularea Serverului (Docker)
 
 1. Deschide terminalul în folderul rădăcină al proiectului.
 2. Construiește imaginile și pornește containerele în fundal:
-   ```bash
+```bash
    docker compose up --build -d
-   ```
+```
 3. Așteaptă 1-2 minute pentru ca MariaDB să se inițializeze și API-ul FastAPI să devină disponibil.
 4. **FOARTE IMPORTANT (La prima rulare):**
    - Accesează panoul de administrare la `http://localhost:8000/static/login.html`
    - Loghează-te cu credențialele din fișierul `.env`.
-   - Mergi în tab-ul **Surse AI (RAG)** și apasă butonul roșu **RE-INDEXEAZA BAZA DE DATE AI**. 
+   - Mergi în tab-ul **Surse AI (RAG)** și apasă butonul roșu **RE-INDEXEAZA BAZA DE DATE AI**.
    - Acest pas va citi PDF-urile tale și va construi "memoria" AI-ului local, pe PC-ul tău. Fără acest pas, chat-ul public va spune că nu știe să răspundă.
+
+> **Notă (fus orar):** Containerul `web` este configurat cu `TZ=Europe/Bucharest` (în `docker-compose.yml`), iar imaginea instalează `tzdata` (în `Dockerfile`), astfel încât timestamp-urile conversațiilor din dashboard să reflecte ora locală a României.
 
 ---
 
-## 🌐 Integrarea în WordPress (Frontend)
+##  Integrarea în WordPress (Frontend)
 
 Sistemul oferă un widget plutitor asincron, perfect integrabil în orice site WordPress, fără a îngreuna încărcarea paginilor.
 

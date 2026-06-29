@@ -102,7 +102,6 @@ async function sendMessage() {
         document.getElementById(loadingId).remove();
         
         let formattedAnswer = marked.parse(data.answer);
-        let sourceHtml = `<span class="source-tag">Sursa: ${data.source}</span>`;
         
         let feedbackHtml = "";
         if (data.conversation_id && data.source !== "rule-based") {
@@ -116,7 +115,7 @@ async function sendMessage() {
                 </div>
             `;
         }
-        appendMessage(formattedAnswer + sourceHtml + feedbackHtml, "bot-msg", true);
+        appendMessage(formattedAnswer + feedbackHtml, "bot-msg", true);
 
     } catch (error) {
         document.getElementById(loadingId).remove();

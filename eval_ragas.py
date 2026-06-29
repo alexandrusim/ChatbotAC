@@ -27,7 +27,7 @@ async def main_evaluation():
     print(">> [1/4] Incarcare modele si configurare mediu de test hibrid...")
     lc_embeddings = LCHuggingFaceEmbeddings(model_name="paraphrase-multilingual-MiniLM-L12-v2")
 
-    db_test_path = "./chroma_db_test"
+    db_test_path = "./chroma_db"
 
     if not os.path.exists(db_test_path):
         print(f"   -> Folderul '{db_test_path}' nu exista. Il cream acum din PDF-uri si Site-uri...")
@@ -80,7 +80,7 @@ async def main_evaluation():
             client_settings=Settings(anonymized_telemetry=False, is_persistent=True)
         )
 
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 6})
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 12})
 
     # =====================================================================
     # GENERATOR: model fix (Gemini 3.1 Flash Lite) - cel mai mare RPD din Gemini.
@@ -156,9 +156,18 @@ async def main_evaluation():
 
         chain = prompt_template | llm_generator
         answer_msg = chain.invoke({"context": context_str, "input": q})
-        generated_answer = answer_msg.content
+        raw_content = answer_msg.content
+        if isinstance(raw_content, list):
+            # Noile versiuni langchain-google-genai returneaza o lista de blocuri.
+            # Extragem si concatenam doar textul.
+            generated_answer = "".join(
+                block.get("text", "") for block in raw_content
+                if isinstance(block, dict)
+            ).strip()
+        else:
+            generated_answer = raw_content  # versiunile mai vechi returneaza direct string
 
-        print(f"\n   [RAG] Intrebare procesata ({i+1}/{len(test_questions)}): '{q}'")
+        print(f"\n   [RAG] Intrebare procesata ({i+1}/{len(test_questions[:1])}): '{q}'")
         print(f"   [Raspuns generat]: {generated_answer[:200]}...")
         print(f"   [Arbitru] Se calculeaza scorurile de halucinatie (judge: Llama 3.3 70B)...")
 

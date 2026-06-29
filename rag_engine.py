@@ -252,7 +252,7 @@ def get_ai_response(user_message: str):
     winning_model_name, llm = get_roulette_wheel_llm()
     print(f">> Processing question with model: {winning_model_name}")
 
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 6})
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 12})
 
 
 
