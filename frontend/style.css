@@ -57,7 +57,6 @@ body.page-chat {
     border-radius: 10px;
     line-height: 1.4;
 
-    /* Cele 3 linii magice care repara link-urile lungi: */
     word-wrap: break-word;
     overflow-wrap: break-word;
     word-break: break-word;
@@ -89,6 +88,12 @@ body.page-chat {
     border: 1px solid #ccc;
     border-radius: 5px;
     outline: none;
+}
+
+#chat-input:disabled,
+#send-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 #send-btn {
@@ -268,11 +273,9 @@ button.delete-btn:hover {
     background: #c82333;
 }
 
-/* Stiluri pentru butoanele cu iconite */
 .action-buttons-container {
     display: flex;
     gap: 8px;
-    /* Spatiul dintre butoane */
     justify-content: center;
 }
 
@@ -282,7 +285,6 @@ button.delete-btn:hover {
     border-radius: 4px;
     cursor: pointer;
     font-size: 16px;
-    /* Dimensiunea iconitei */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -295,12 +297,10 @@ button.delete-btn:hover {
 
 .icon-btn.edit {
     background-color: #004b87;
-    /* Albastru inchis (tema site-ului) */
     color: #fff;
 }
 
 .icon-btn.delete {
     background-color: #6c757d;
-    /* Gri neutru */
     color: #fff;
 }

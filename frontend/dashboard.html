@@ -10,27 +10,27 @@
 <body class="page-dashboard">
 
 <div class="container" style="max-width: 1200px;"> <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h1>Panou de Administrare Chatbot</h1>
+        <h1>Panou de administrare Chatbot</h1>
         <button class="action-btn" style="background-color: #dc3545;" onclick="logoutAdmin()">Deconectare (Logout)</button>
     </div>
     
     <div class="tabs">
-        <button class="tab-btn active" onclick="showSection('istoric')">Istoric Conversatii</button>
-        <button class="tab-btn" onclick="showSection('reguli')">Reguli Fixe (Rule-Based)</button>
+        <button class="tab-btn active" onclick="showSection('istoric')">Istoric conversații</button>
+        <button class="tab-btn" onclick="showSection('reguli')">Reguli fixe (Rule-Based)</button>
         <button class="tab-btn" onclick="showSection('surse')">Surse AI (RAG)</button>
-        <button class="tab-btn" onclick="showSection('email')">Raspunde la mail</button>
+        <button class="tab-btn" onclick="showSection('email')">Răspunde la mail</button>
     </div>
 
     <div id="istoric" class="section active">
-        <h2>Ultimele 50 de conversatii</h2>
-        <button class="action-btn" onclick="loadHistory()">Actualizeaza Tabelul</button>
+        <h2>Ultimele 50 de conversații</h2>
+        <button class="action-btn" onclick="loadHistory()">Actualizează tabelul</button>
         <table>
             <thead>
                 <tr>
                     <th>Data</th>
-                    <th>Intrebare Utilizator</th>
-                    <th>Raspuns Chatbot</th>
-                    <th>Sursa</th>
+                    <th>Întrebare utilizator</th>
+                    <th>Răspuns chatbot</th>
+                    <th>Sursă</th>
                     <th>Feedback</th>
                 </tr>
             </thead>
@@ -39,19 +39,19 @@
     </div>
 
     <div id="reguli" class="section">
-        <h2>Adauga o regula noua</h2>
+        <h2>Adaugă o regulă nouă</h2>
         <div class="form-group">
-            <input type="text" id="new-keyword" placeholder="Cuvant cheie (ex: numar de telefon)">
-            <input type="text" id="new-response" placeholder="Raspunsul fix dorit...">
-            <button class="action-btn" onclick="addRule()">Adauga Regula</button>
+            <input type="text" id="new-keyword" placeholder="Cuvânt cheie (ex: număr de telefon)">
+            <input type="text" id="new-response" placeholder="Răspunsul fix dorit...">
+            <button class="action-btn" onclick="addRule()">Adaugă regulă</button>
         </div>
-        <h2>Reguli active in baza de date</h2>
+        <h2>Reguli active în baza de date</h2>
         <table>
             <thead>
                 <tr>
-                    <th>Cuvant Cheie</th>
-                    <th>Raspuns Predefinit</th>
-                    <th style="width: 80px;">Actiuni</th>
+                    <th>Cuvânt cheie</th>
+                    <th>Răspuns predefinit</th>
+                    <th style="width: 80px;">Acțiuni</th>
                 </tr>
             </thead>
             <tbody id="tabel-reguli"></tbody>
@@ -60,17 +60,17 @@
 
     <div id="surse" class="section">
         
-        <h2>1. Documente PDF (Regulamente / Ghiduri)</h2>
+        <h2>1. Documente PDF (regulamente / ghiduri)</h2>
         <div class="form-group">
             <input type="file" id="pdf-upload" accept="application/pdf">
-            <button class="action-btn" onclick="uploadPDF()">Incarca PDF in sistem</button>
+            <button class="action-btn" onclick="uploadPDF()">Încarcă PDF în sistem</button>
         </div>
         
         <table>
             <thead>
                 <tr>
-                    <th>Nume Fisier PDF (din folderul 'date')</th>
-                    <th style="width: 80px;">Actiuni</th>
+                    <th>Nume fișier PDF (din folderul 'date')</th>
+                    <th style="width: 80px;">Acțiuni</th>
                 </tr>
             </thead>
             <tbody id="tabel-documente"></tbody>
@@ -79,17 +79,17 @@
 
         <hr>
 
-        <h2>2. Paragrafe Text (Introduse Manual)</h2>
+        <h2>2. Paragrafe text (introduse manual)</h2>
         <div class="form-group" style="flex-direction: column; align-items: stretch;">
-            <textarea id="new-text-content" rows="4" placeholder="Lipeste aici un paragraf important, un raspuns la mail sau un fragment de regulament..." style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; resize: none; box-sizing: border-box;"></textarea>
-            <button class="action-btn" onclick="addTextSnippet()" style="align-self: flex-start;">Adauga Text in Baza de Date</button>
+            <textarea id="new-text-content" rows="4" placeholder="Lipește aici un paragraf important, un răspuns la mail sau un fragment de regulament..." style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; resize: none; box-sizing: border-box;"></textarea>
+            <button class="action-btn" onclick="addTextSnippet()" style="align-self: flex-start;">Adaugă text în baza de date</button>
         </div>
         
         <table>
             <thead>
                 <tr>
-                    <th>Continut Text</th>
-                    <th style="width: 150px;">Actiuni</th>
+                    <th>Conținut text</th>
+                    <th style="width: 150px;">Acțiuni</th>
                 </tr>
             </thead>
             <tbody id="tabel-texte"></tbody>
@@ -98,18 +98,18 @@
 
         <hr>
 
-        <h2>3. Link-uri Web Scanate</h2>
+        <h2>3. Link-uri web scanate</h2>
         <div class="form-group">
             <input type="text" id="new-link" placeholder="https://admitere.tuiasi.ro/nou...">
-            <button class="action-btn" onclick="addLink()">Adauga Link</button>
+            <button class="action-btn" onclick="addLink()">Adaugă link</button>
         </div>
         
         <table>
             <thead>
                 <tr>
                     <th>Tip</th>
-                    <th>Adresa Web (URL)</th>
-                    <th style="width: 80px;">Actiuni</th>
+                    <th>Adresă web (URL)</th>
+                    <th style="width: 80px;">Acțiuni</th>
                 </tr>
             </thead>
             <tbody id="tabel-surse"></tbody>
@@ -117,9 +117,9 @@
 
         <hr>
 
-        <h2>4. Actualizare Inteligenta Artificiala</h2>
-        <p><i>Atentie: Orice modificare de mai sus (adaugare/stergere PDF sau Link) NU se va aplica pana nu apesi acest buton! Procesul va dura cateva secunde.</i></p>
-        <button class="reindex-btn" onclick="reindexAI()">RE-INDEXEAZA BAZA DE DATE AI</button>
+        <h2>4. Actualizare inteligență artificială</h2>
+        <p><i>Atenție: Orice modificare de mai sus (adăugare/ștergere PDF sau Link) NU se va aplica până nu apeși acest buton! Procesul va dura câteva secunde.</i></p>
+        <button class="reindex-btn" onclick="reindexAI()">RE-INDEXEAZĂ BAZA DE DATE AI</button>
         <p id="reindex-status" style="text-align: center; color: red; font-weight: bold; margin-top: 15px; font-size: 18px;"></p>
         
     </div>
@@ -129,18 +129,18 @@
             
             <div style="display: flex; flex-direction: column;">
                 <h2 style="margin-bottom: 10px; color: #004b87;">Mail primit</h2>
-                <textarea id="email-received" style="width: 100%; height: 200px; padding: 15px; border-radius: 8px; border: 2px solid #ccc; font-family: inherit; font-size: 15px; resize: none; box-sizing: border-box;" placeholder="Copiaza aici textul mailului primit de la student..."></textarea>
+                <textarea id="email-received" style="width: 100%; height: 200px; padding: 15px; border-radius: 8px; border: 2px solid #ccc; font-family: inherit; font-size: 15px; resize: none; box-sizing: border-box;" placeholder="Copiază aici textul mailului primit de la student..."></textarea>
             </div>
 
             <div style="display: flex; flex-direction: column;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <h2 style="margin: 0; color: #004b87;">Mail de trimis</h2>
-                    <button class="action-btn" style="background-color: #004b87; font-size: 16px; padding: 10px 20px;" onclick="generateEmailResponse()">Genereaza raspuns AI</button>
+                    <button class="action-btn" style="background-color: #004b87; font-size: 16px; padding: 10px 20px;" onclick="generateEmailResponse()">Generează răspuns AI</button>
                 </div>
-                <textarea id="email-response" style="width: 100%; height: 250px; padding: 15px; border-radius: 8px; border: 2px solid #28a745; font-family: inherit; font-size: 15px; resize: none; box-sizing: border-box;" placeholder="Aici va aparea automat raspunsul curatat de date personale..."></textarea>
+                <textarea id="email-response" style="width: 100%; height: 250px; padding: 15px; border-radius: 8px; border: 2px solid #28a745; font-family: inherit; font-size: 15px; resize: none; box-sizing: border-box;" placeholder="Aici va apărea automat răspunsul curățat de date personale..."></textarea>
             </div>
 
-            <button class="action-btn" style="background-color: #17a2b8; padding: 15px; font-size: 18px; margin-top: 10px;" onclick="openEmailModal()">Adauga conversatia ca sursa AI in baza de date</button>
+            <button class="action-btn" style="background-color: #17a2b8; padding: 15px; font-size: 18px; margin-top: 10px;" onclick="openEmailModal()">Adaugă conversația ca sursă AI în baza de date</button>
             
         </div>
     </div>
@@ -149,19 +149,19 @@
 
 <div id="editModal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5);">
     <div style="background-color:#fefefe; margin:10% auto; padding:20px; border:1px solid #888; width:80%; max-width:600px; border-radius:8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-        <h3 style="margin-top:0; color:#003366;">Editează Paragraful</h3>
+        <h3 style="margin-top:0; color:#003366;">Editează paragraful</h3>
         <textarea id="editTextarea" style="width:100%; height:200px; margin-bottom:15px; padding:10px; font-family:inherit; border:1px solid #ccc; border-radius:4px; resize:vertical;"></textarea>
         <input type="hidden" id="editSnippetId">
         <div style="display:flex; gap:10px; justify-content:flex-end;">
             <button onclick="closeEditModal()" style="background-color:#6c757d; color:white; padding:8px 16px; border:none; border-radius:4px; cursor:pointer;">Anulează</button>
-            <button onclick="saveEdit()" style="background-color:#ffc107; color:black; padding:8px 16px; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">Salvează Modificările</button>
+            <button onclick="saveEdit()" style="background-color:#ffc107; color:black; padding:8px 16px; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">Salvează modificările</button>
         </div>
     </div>
 </div>
 
 <div id="confirmEmailModal" style="display:none; position:fixed; z-index:1001; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.6);">
     <div style="background-color:#fff; margin:5% auto; padding:25px; border:1px solid #888; width:80%; max-width:800px; border-radius:8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
-        <h3 style="margin-top:0; color:#003366; border-bottom: 2px solid #eee; padding-bottom: 10px;">Adăugare Sursă Nouă</h3>
+        <h3 style="margin-top:0; color:#003366; border-bottom: 2px solid #eee; padding-bottom: 10px;">Adăugare sursă nouă</h3>
         
         <div style="margin-bottom: 15px;">
             <strong style="color: #555;">Întrebare:</strong>
@@ -174,7 +174,7 @@
         </div>
         
         <div style="background-color: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; text-align: center; border: 1px solid #ffeeba; margin-bottom: 20px;">
-            <strong>! Atenție:</strong> Vei introduce acest text definitv în baza de date AI (la Paragrafe Manuale).
+            <strong>! Atenție:</strong> Vei introduce acest text definitiv în baza de date AI (la Paragrafe manuale).
         </div>
         
         <div style="display:flex; gap:15px; justify-content:center;">

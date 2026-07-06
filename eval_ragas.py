@@ -30,7 +30,7 @@ async def main_evaluation():
     db_test_path = "./chroma_db"
 
     if not os.path.exists(db_test_path):
-        print(f"   -> Folderul '{db_test_path}' nu exista. Il cream acum din PDF-uri si Site-uri...")
+        print(f"   -> Folderul '{db_test_path}' nu exista. Se creeaza acum din PDF-uri si Site-uri...")
 
         all_documents = []
 
@@ -58,7 +58,7 @@ async def main_evaluation():
                 print(f"      [Eroare Scraping]: Nu s-au putut descarca site-urile: {e}")
 
         if not all_documents:
-            raise ValueError("Eroare critica: Nu am gasit nici PDF-uri si nu am putut descarca niciun site web!")
+            raise ValueError("Eroare critica: Nu s-au gasit nici PDF-uri si nu s-a putut descarca niciun site web!")
 
         # 3. Impartire text si salvare in baza de date comuna
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
@@ -68,12 +68,11 @@ async def main_evaluation():
             documents=splits,
             embedding=lc_embeddings,
             persist_directory=db_test_path,
-            # is_persistent=True => datele se scriu GARANTAT pe disc (altfel raman doar in RAM)
             client_settings=Settings(anonymized_telemetry=False, is_persistent=True)
         )
         print(f"   -> Baza de date hibrida a fost creata cu succes ({len(splits)} chunks)!")
     else:
-        print(f"   -> Incarcam baza de date hibrida existenta din '{db_test_path}'...")
+        print(f"   -> Incarcare baza de date hibrida existenta din '{db_test_path}'...")
         vectorstore = Chroma(
             persist_directory=db_test_path,
             embedding_function=lc_embeddings,
@@ -82,20 +81,17 @@ async def main_evaluation():
 
     retriever = vectorstore.as_retriever(search_kwargs={"k": 12})
 
-    # =====================================================================
-    # GENERATOR: model fix (Gemini 3.1 Flash Lite) - cel mai mare RPD din Gemini.
-    # Evaluam fidelitatea unui generator controlat, NU a selectiei roulette.
-    # =====================================================================
+
+    # GENERATOR: model fix (Gemini 3.1 Flash Lite) 
+
     llm_generator = ChatGoogleGenerativeAI(
         model="gemini-3.1-flash-lite",
         temperature=0.3,
         google_api_key=os.getenv("GOOGLE_API_KEY")
     )
 
-    # =====================================================================
-    # ARBITRU (JUDGE): model puternic, alt furnizor (Llama 3.3 70B via Groq).
-    # Mai fiabil decat 8B la descompunerea in claims + evita self-preference bias.
-    # =====================================================================
+    # ARBITRU (JUDGE): model Llama 3.3 70B via Groq
+
     openai_client = AsyncOpenAI(
         base_url="https://api.groq.com/openai/v1",
         api_key=os.getenv("GROQ_API_KEY")
@@ -106,10 +102,6 @@ async def main_evaluation():
     faithfulness_metric = Faithfulness(llm=ragas_judge_llm)
     answer_relevancy_metric = AnswerRelevancy(llm=ragas_judge_llm, embeddings=ragas_embeddings)
 
-    # =====================================================================
-    # PROMPT IDENTIC CU CEL DIN PRODUCTIE (rag_engine.py).
-    # Astfel evaluam exact comportamentul aplicatiei, nu un pipeline simplificat.
-    # =====================================================================
     system_prompt = (
         "Esti un asistent util, prietenos si concis pentru admiterea la facultate (TUIASI). "
         "Ai voie sa raspunzi STRICT si DOAR pe baza contextului furnizat mai jos. NU folosi cunostintele tale anterioare.\n\n"
@@ -129,21 +121,16 @@ async def main_evaluation():
         ("human", "{input}"),
     ])
 
-    # =====================================================================
-    # ATENTIE: alege intrebari care SUNT acoperite de documentele tale.
-    # Daca o intrebare nu e acoperita, prompt-ul declanseaza refuzul (regula 4),
-    # iar Faithfulness poate iesi NaN si AnswerRelevancy aproape 0 (comportament
-    # corect, dar iti scade media nejustificat). Verifica acoperirea acestor 8!
-    # =====================================================================
+
     test_questions = [
         "Care este formula pentru media de admitere?",
         "Ce documente trebuie sa contina dosarul de concurs?",
         "Care sunt criteriile de departajare intre candidati?",
         "Ce trebuie sa fac daca nu primesc emailul de confirmare?",
         "Ce facilitati au candidatii olimpici la admitere?",
-        "Care sunt taxele de scolarizare si modalitatile de plata?",          # verifica acoperirea
-        "Exista locuri speciale pentru candidatii din mediul rural?",          # verifica acoperirea
-        "Ce se intampla daca nu confirm locul in termenul stabilit?",          # verifica acoperirea
+        "Care sunt taxele de scolarizare si modalitatile de plata?",          
+        "Exista locuri speciale pentru candidatii din mediul rural?",         
+        "Ce se intampla daca nu confirm locul in termenul stabilit?",          
     ]
 
     results_list = []
@@ -158,14 +145,12 @@ async def main_evaluation():
         answer_msg = chain.invoke({"context": context_str, "input": q})
         raw_content = answer_msg.content
         if isinstance(raw_content, list):
-            # Noile versiuni langchain-google-genai returneaza o lista de blocuri.
-            # Extragem si concatenam doar textul.
             generated_answer = "".join(
                 block.get("text", "") for block in raw_content
                 if isinstance(block, dict)
             ).strip()
         else:
-            generated_answer = raw_content  # versiunile mai vechi returneaza direct string
+            generated_answer = raw_content  
 
         print(f"\n   [RAG] Intrebare procesata ({i+1}/{len(test_questions[:1])}): '{q}'")
         print(f"   [Raspuns generat]: {generated_answer[:200]}...")
@@ -197,8 +182,7 @@ async def main_evaluation():
             "answer_relevancy": ar_score
         })
 
-        # Pauza obligatorie: Llama 3.3 70B free tier = 12K TPM, iar Faithfulness
-        # consuma mult (2 apeluri + 6 chunks de context). Fara pauza => HTTP 429.
+
         if i < len(test_questions) - 1:
             print("   [PAUZA ANTI-RATE-LIMIT] Asteptam 65 de secunde...")
             await asyncio.sleep(65)
@@ -210,7 +194,6 @@ async def main_evaluation():
     print("\n================ REZULTATE FINALE EVALUARE ================")
     print(df[["question", "faithfulness", "answer_relevancy"]])
 
-    # Medii (ignora NaN/None, ex. raspunsuri de tip refuz)
     mean_faith = df["faithfulness"].dropna().mean()
     mean_ar = df["answer_relevancy"].dropna().mean()
     print(f"\n>> Faithfulness mediu: {mean_faith:.3f}")

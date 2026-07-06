@@ -5,7 +5,6 @@ from fastapi.staticfiles import StaticFiles
 
 from database import engine, SessionLocal
 import models
-# Am scos importul pentru reindex_ai_knowledge ca sa nu mai trezim AI-ul degeaba aici
 from router import router
 
 os.environ["USER_AGENT"] = "TUIASI-Chatbot/1.0"
@@ -54,6 +53,5 @@ def startup_event():
     
     print(">> Baza de date (MariaDB) initializata cu succes!")
     print(">> Serverul a pornit rapid (AI-ul este in modul Lazy-Loading).")
-    # reindex_ai_knowledge() <-- Am dezactivat asta!
 
 app.include_router(router)

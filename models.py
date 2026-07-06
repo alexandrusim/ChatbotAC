@@ -7,10 +7,10 @@ class Conversation(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     timestamp = Column(String(50), default=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    user_message = Column(Text)  # Folosim Text pentru mesaje lungi
+    user_message = Column(Text)  
     bot_response = Column(Text)
     source = Column(String(50))
-    rating = Column(Integer, nullable=True) # 1 - like , -1 dislike sau null pentru neevaluat
+    rating = Column(Integer, nullable=True) 
 
 class Rule(Base):
     __tablename__ = "rules"

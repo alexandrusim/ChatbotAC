@@ -1,6 +1,4 @@
-// ==========================================
-// 1. SECURITATE SI AUTENTIFICARE (JWT)
-// ==========================================
+//  SECURITATE SI AUTENTIFICARE (JWT)
 
 if (window.location.pathname.includes("dashboard")) {
     const token = localStorage.getItem("admin_token");
@@ -25,24 +23,20 @@ function getAuthHeaders(isJson = true) {
 }
 
 async function doLogin() {
-    // Extragem datele EXACT asa cum au fost tastate (fara trim)
     const user = document.getElementById("username").value;
     const pass = document.getElementById("password").value;
     const errorMsg = document.getElementById("error-msg");
     
-    // ==========================================
     // VALIDARE FRONTEND
-    // ==========================================
     if (!user || !pass) {
         errorMsg.innerText = " Te rog să completezi ambele câmpuri!";
-        return; // Opreste executia functiei aici
+        return; 
     }
 
     if (user.length < 3 || pass.length < 3) {
         errorMsg.innerText = " Datele introduse sunt prea scurte!";
         return;
     }
-    // ==========================================
 
     const formData = new URLSearchParams();
     formData.append("username", user);
@@ -77,14 +71,16 @@ function logoutAdmin() {
 }
 
 
-// ==========================================
-// 2. LOGICA PENTRU CHAT (PUBLIC)
-// ==========================================
+// LOGICA PENTRU CHAT (PUBLIC)
 
 async function sendMessage() {
     const chatInput = document.getElementById("chat-input");
+    const sendBtn = document.getElementById("send-btn");
     const text = chatInput.value.trim();
     if (!text) return;
+
+    chatInput.disabled = true;
+    sendBtn.disabled = true;
 
     appendMessage(text, "user-msg");
     chatInput.value = "";
@@ -100,9 +96,9 @@ async function sendMessage() {
 
         const data = await response.json();
         document.getElementById(loadingId).remove();
-        
+
         let formattedAnswer = marked.parse(data.answer);
-        
+
         let feedbackHtml = "";
         if (data.conversation_id && data.source !== "rule-based") {
             feedbackHtml = `
@@ -120,6 +116,10 @@ async function sendMessage() {
     } catch (error) {
         document.getElementById(loadingId).remove();
         appendMessage("Eroare de conexiune cu serverul.", "bot-msg");
+    } finally {
+        chatInput.disabled = false;
+        sendBtn.disabled = false;
+        chatInput.focus();
     }
 }
 
@@ -152,7 +152,7 @@ async function sendFeedback(conversationId, rating, btnElement) {
             body: JSON.stringify({ rating: rating })
         });
         if (response.ok) {
-            container.innerHTML = "<span class='feedback-thanks'>Mulțumim pentru feedback! ✓</span>";
+            container.innerHTML = "<span class='feedback-thanks'>Mulțumim pentru feedback! </span>";
         }
     } catch (error) {
         console.error("Eroare la trimiterea feedback-ului:", error);
@@ -160,9 +160,8 @@ async function sendFeedback(conversationId, rating, btnElement) {
 }
 
 
-// ==========================================
-// 3. LOGICA PENTRU DASHBOARD (ADMIN PROTEJAT)
-// ==========================================
+
+// LOGICA PENTRU DASHBOARD 
 
 function showSection(id) {
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -325,9 +324,7 @@ async function deleteLink(id) {
 }
 
 
-// ==========================================
-// --- LOGICA PENTRU TEXTE MANUALE ---
-// ==========================================
+// LOGICA TEXTE MANUALE 
 
 async function loadTexts() {
     const res = await fetch('/api/texts', { headers: getAuthHeaders() });
@@ -413,9 +410,7 @@ async function saveEdit() {
 }
 
 
-// ==========================================
-// --- LOGICA NOUA PENTRU MAILURI SECRETARIAT ---
-// ==========================================
+// LOGICA MAILURI SECRETARIAT 
 
 async function generateEmailResponse() {
     const receivedBox = document.getElementById('email-received');
@@ -427,13 +422,13 @@ async function generateEmailResponse() {
         return;
     }
 
-    responseBox.value = "AI-ul analizează și generează un răspuns oficial... ⏳";
+    responseBox.value = "AI-ul analizează și generează un răspuns oficial... ";
 
     try {
         const response = await fetch("/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: textMail }) // Trimitem direct textul mail-ului
+            body: JSON.stringify({ message: textMail }) 
         });
 
         const data = await response.json();
@@ -469,21 +464,19 @@ function closeConfirmEmailModal() {
 }
 
 async function submitEmailSource() {
-    // se ia doar raspunsul
     const raspuns = document.getElementById('preview-answer').innerText;
 
     try {
         const response = await fetch('/api/texts', { 
             method: 'POST', 
             headers: getAuthHeaders(), 
-            body: JSON.stringify({ content: raspuns }) // Trimite doar textul curat
+            body: JSON.stringify({ content: raspuns })
         });
         
         if (response.ok) {
             closeConfirmEmailModal();
             alert("Răspunsul a fost salvat ca sursă cu succes! Nu uita de butonul de RE-INDEXARE.");
             
-            // Golire casute dupa succes
             document.getElementById('email-received').value = '';
             document.getElementById('email-response').value = '';
             
@@ -499,9 +492,7 @@ async function submitEmailSource() {
 }
 
 
-// ==========================================
 // RE-INDEXARE AI
-// ==========================================
 
 async function reindexAI() {
     const statusText = document.getElementById('reindex-status');
@@ -529,7 +520,6 @@ async function reindexAI() {
     }
 }
 
-// AUTO-INITIALIZE ON PAGE LOAD
 document.addEventListener("DOMContentLoaded", () => {
     if (document.getElementById("tabel-istoric")) {
         loadHistory();

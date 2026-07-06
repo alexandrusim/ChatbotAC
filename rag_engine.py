@@ -2,7 +2,7 @@ import os
 import random
 import spacy
 import chromadb
-import threading # <--- Adaugat pentru rezolvarea Race Condition (Locust)
+import threading 
 from chromadb.config import Settings
 from dotenv import load_dotenv
 
@@ -25,18 +25,16 @@ load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# Calea si numele colectiei sunt definite o singura data, pentru consistenta
 CHROMA_PATH = "./chroma_db"
 COLLECTION_NAME = "langchain"
 
-# ==============================================================
-# Sistem de Lazy Loading pentru modelele grele
-# ==============================================================
+
+
 _embeddings_model = None
 vectorstore = None
 _nlp_spacy = None
-_chroma_client = None  # <--- Clientul persistent unic
-_rag_lock = threading.Lock() # <--- Lacatul pentru Thread-Safety
+_chroma_client = None  # Clientul persistent unic
+_rag_lock = threading.Lock() # Lacatul pentru Thread-Safety
 
 def get_embeddings():
     global _embeddings_model
@@ -62,7 +60,7 @@ def get_chroma_client():
             settings=Settings(anonymized_telemetry=False)
         )
     return _chroma_client
-# ==============================================================
+
 
 def corecteaza_vocabular_student(mesaj: str) -> str:
     """Intercepteaza si inlocuieste sintagmele studentilor cu termeni academici oficiali."""
@@ -135,7 +133,7 @@ def get_roulette_wheel_llm():
     model_names = list(population.keys())
     roulette_weights = []
     
-    SHARPNESS = 2  # exponentul care accentueaza modelele cu rating bun
+    SHARPNESS = 2  
 
     for name in model_names:
         # Scor neutru 3.0 pentru modelele inca neevaluate
@@ -191,7 +189,6 @@ def create_new_vectorstore():
 
     print(f">> Building AI memory on DISK ({len(splits)} chunks)...")
     
-    # Folosim acelasi client persistent. Stergem colectia veche daca exista.
     client = get_chroma_client()
     try:
         client.delete_collection(COLLECTION_NAME)
@@ -214,8 +211,8 @@ def reindex_ai_knowledge():
     global vectorstore
     print(">> Start Re-indexing...")
     
-    with _rag_lock: # <--- Securizam procesul de rescriere a bazei de date ChromaDB
-        # Eliberam lock-ul din RAM inainte de a sterge datele
+    with _rag_lock: 
+        # Eliberare lock-ul din RAM inainte de a sterge datele
         if vectorstore is not None:
             vectorstore = None
             
@@ -226,12 +223,12 @@ def reindex_ai_knowledge():
 def get_ai_response(user_message: str):
     global vectorstore
     
-    # <--- Pattern-ul Double-Checked Locking pentru stabilitate sub stress --->
+    # Pattern Double-Checked Locking pentru stabilitate sub stress 
     if vectorstore is None:
-        with _rag_lock: # Blocăm celelalte thread-uri pana cand se termina incarcarea
-            if vectorstore is None: # Verificăm din nou dupa ce am primit accesul
+        with _rag_lock: # Blocare celelalte thread-uri pana cand se termina incarcarea
+            if vectorstore is None: 
                 client = get_chroma_client()
-                # Verificam daca exista deja o colectie cu date pe disc
+                # Verificare daca exista deja o colectie cu date pe disc
                 existing_collections = [c.name for c in client.list_collections()]
                 if COLLECTION_NAME in existing_collections:
                     print(">> [RAG] Incarcam memoria AI direct de pe disc (foarte rapid)...")

@@ -2,7 +2,6 @@ from locust import HttpUser, task, between
 import random
 
 class ChatbotUser(HttpUser):
-    # Timpul de asteptare (citire) al unui utilizator intre 2 intrebari (intre 2 si 5 secunde)
     wait_time = between(2.0, 5.0)
 
     # Lista de intrebari hibride (Reguli fixe + RAG)
@@ -18,14 +17,13 @@ class ChatbotUser(HttpUser):
 
     @task
     def ask_question(self):
-        # Alege o intrebare la intamplare
         question = random.choice(self.queries)
         
         # Trimite cererea POST catre endpoint-ul de chat
         self.client.post(
             "/chat", 
             json={"message": question},
-            name="/chat [Hibrid]" # Numele sub care va aparea in grafice
+            name="/chat [Hibrid]" 
         )
 
     def on_start(self):

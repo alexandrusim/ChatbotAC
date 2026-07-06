@@ -4,7 +4,6 @@ services:
     image: mariadb:10.11
     restart: always
     environment:
-      # Citeste parolele din fisierul .env!
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MYSQL_DATABASE: ${DB_DATABASE}
       MYSQL_USER: ${DB_USER}
@@ -14,7 +13,7 @@ services:
     volumes:
       - db_data:/var/lib/mysql
 
-  # 2. APLICATIA TA (FastAPI + AI)
+  # 2. APLICATIA (FastAPI + AI)
   web:
     build: .
     restart: always

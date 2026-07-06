@@ -15,7 +15,7 @@ from rag_engine import get_ai_response, reindex_ai_knowledge
 
 router = APIRouter()
 
-# --- CONFIGURARE JWT (SECURITATE) ---
+# CONFIGURARE JWT (SECURITATE)
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 if not SECRET_KEY:
     raise ValueError("EROARE CRITICA: JWT_SECRET_KEY lipseste din fisierul .env!")
@@ -54,7 +54,6 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
         detail="Utilizator sau parolă incorecte",
         headers={"WWW-Authenticate": "Bearer"},
     )
-# ------------------------------------
 
 # MODELE PYDANTIC
 class ChatRequest(BaseModel):
@@ -80,9 +79,7 @@ class FeedbackRequest(BaseModel):
 class TextRequest(BaseModel):
     content: str
 
-# =====================================================================
 # ENDPOINT-URI PENTRU CHAT PUBLIC (Accesibile de catre oricine)
-# =====================================================================
 
 @router.get("/")
 def read_root():
@@ -137,9 +134,7 @@ def submit_feedback(conversation_id: int, feedback: FeedbackRequest, db: Session
     return {"message": "Feedback salvat cu succes!", "rating": feedback.rating}
 
 
-# =====================================================================
 # ENDPOINT-URI PENTRU DASHBOARD (PROTEJATE DE JWT)
-# =====================================================================
 
 @router.get("/dashboard")
 def serve_dashboard():
@@ -159,9 +154,7 @@ def get_logs(db: Session = Depends(get_db), admin: str = Depends(get_current_adm
     ]
     return {"istoric_conversatii": history}
 
-# ==========================================
 # GESTIUNE REGULI FIXE
-# ==========================================
 @router.get("/api/rules")
 def get_rules(db: Session = Depends(get_db), admin: str = Depends(get_current_admin)):
     rules = db.query(models.Rule).all()
@@ -187,9 +180,7 @@ def delete_rule(rule_id: int, db: Session = Depends(get_db), admin: str = Depend
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Regula nu a fost gasita.")
 
-# ==========================================
 # GESTIUNE SURSE WEB (LINK-URI)
-# ==========================================
 @router.get("/api/weblinks")
 def get_weblinks(db: Session = Depends(get_db), admin: str = Depends(get_current_admin)):
     links = db.query(models.Weblink).all()
@@ -215,9 +206,7 @@ def delete_weblink(link_id: int, db: Session = Depends(get_db), admin: str = Dep
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Link-ul nu a fost gasit.")
 
-# ==========================================
 # GESTIUNE PARAGRAFE TEXT (MANUALE)
-# ==========================================
 @router.get("/api/texts")
 def get_texts(db: Session = Depends(get_db), admin: str = Depends(get_current_admin)):
     texts = db.query(models.TextSnippet).all()
@@ -252,9 +241,7 @@ def delete_text(text_id: int, db: Session = Depends(get_db), admin: str = Depend
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Textul nu a fost gasit.")
 
-# ==========================================
 # GESTIUNE DOCUMENTE PDF
-# ==========================================
 @router.get("/api/documents")
 def get_documents(admin: str = Depends(get_current_admin)):
     if not os.path.exists("date"):
@@ -292,9 +279,7 @@ def delete_document(filename: str, admin: str = Depends(get_current_admin)):
             raise HTTPException(status_code=500, detail=str(e))
     raise HTTPException(status_code=404, detail="Fisierul nu a fost gasit.")
 
-# ==========================================
 # RE-INDEXARE AI
-# ==========================================
 @router.post("/api/reindex")
 def reindex_ai(admin: str = Depends(get_current_admin)):
     try:
