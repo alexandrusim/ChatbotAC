@@ -15,7 +15,7 @@
         <div class="message bot-msg">Salut! Sunt asistentul tău virtual. Cu ce te pot ajuta legat de admitere?</div>
     </div>
     <div id="chat-input-area">
-        <input type="text" id="chat-input" placeholder="Scrie un mesaj..." onkeypress="handleKeyPress(event)">
+        <input type="text" id="chat-input" placeholder="Scrie un mesaj..." maxlength="1000" onkeypress="handleKeyPress(event)">
         <button id="send-btn" onclick="sendMessage()">Trimite</button>
     </div>
 </div>

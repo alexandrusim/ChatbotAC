@@ -59,6 +59,13 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
 class ChatRequest(BaseModel):
     message: str
 
+    @field_validator("message")
+    @classmethod
+    def valid_length(cls, v):
+        if len(v) > 1000:
+            raise ValueError("Mesajul este prea lung (maxim 1000 de caractere).")
+        return v
+        
 class RuleRequest(BaseModel):
     keyword: str
     response: str
