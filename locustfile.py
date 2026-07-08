@@ -4,7 +4,6 @@ import random
 class ChatbotUser(HttpUser):
     wait_time = between(2.0, 5.0)
 
-    # Lista de intrebari hibride (Reguli fixe + RAG)
     queries = [
         "Care este numarul de telefon de la secretariat?",
         "Care este adresa facultatii?",
@@ -19,7 +18,6 @@ class ChatbotUser(HttpUser):
     def ask_question(self):
         question = random.choice(self.queries)
         
-        # Trimite cererea POST catre endpoint-ul de chat
         self.client.post(
             "/chat", 
             json={"message": question},

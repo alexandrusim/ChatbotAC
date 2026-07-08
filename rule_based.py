@@ -22,7 +22,6 @@ def rule_based_router(message: str, db: Session):
     if any(thx in msg_lower for thx in thanks) and len(cuvinte) <= 3:
         return "Cu multa placere! Mult succes la admitere! Daca mai ai intrebari, sunt aici."
 
-    # PROCESARE AVANSATA CU spaCy
     doc = nlp(message)
     
     clean_words = [token.text.lower() for token in doc if not token.is_punct]

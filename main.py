@@ -9,7 +9,6 @@ from router import router
 
 os.environ["USER_AGENT"] = "TUIASI-Chatbot/1.0"
 
-# CONFIGURARE FASTAPI 
 app = FastAPI(title="Admitere Chatbot API")
 
 app.add_middleware(
@@ -20,10 +19,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# RUTARE FISIERE STATICE (CSS/JS) 
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
-# STARTUP
 @app.on_event("startup")
 def startup_event():
     models.Base.metadata.create_all(bind=engine)

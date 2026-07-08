@@ -20,15 +20,12 @@ from langchain_core.output_parsers import StrOutputParser
 from database import SessionLocal
 from models import Weblink, Conversation, TextSnippet
 
-# Load environment variables
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 CHROMA_PATH = "./chroma_db"
 COLLECTION_NAME = "langchain"
-
-
 
 _embeddings_model = None
 vectorstore = None
@@ -39,22 +36,21 @@ _rag_lock = threading.Lock() # Lacatul pentru Thread-Safety
 def get_embeddings():
     global _embeddings_model
     if _embeddings_model is None:
-        print(">> [RAG] Se incarca modelul de Embeddings...")
+        print(">> [RAG] Loading embeddings model...")
         _embeddings_model = HuggingFaceEmbeddings(model_name="paraphrase-multilingual-MiniLM-L12-v2")
     return _embeddings_model
 
 def get_spacy():
     global _nlp_spacy
     if _nlp_spacy is None:
-        print(">> [RAG] Se incarca modelul NLP spaCy...")
+        print(">> [RAG] Loading spaCy NLP model...")
         _nlp_spacy = spacy.load("ro_core_news_sm")
     return _nlp_spacy
 
 def get_chroma_client():
-    """Returneaza un singur client ChromaDB persistent (scrie GARANTAT pe disc)."""
     global _chroma_client
     if _chroma_client is None:
-        print(">> [RAG] Se initializeaza clientul ChromaDB persistent...")
+        print(">> [RAG] Initializing persistent ChromaDB client...")
         _chroma_client = chromadb.PersistentClient(
             path=CHROMA_PATH,
             settings=Settings(anonymized_telemetry=False)
@@ -63,7 +59,6 @@ def get_chroma_client():
 
 
 def corecteaza_vocabular_student(mesaj: str) -> str:
-    """Intercepteaza si inlocuieste sintagmele studentilor cu termeni academici oficiali."""
     nlp = get_spacy()
     
     mesaj_lower = mesaj.lower()
@@ -113,7 +108,6 @@ def calculate_model_fitness():
         db.close()
 
 def get_roulette_wheel_llm():
-    """ Official Roulette Wheel Selection implementation """
     population = {}
     
     if GOOGLE_API_KEY:
@@ -136,7 +130,7 @@ def get_roulette_wheel_llm():
     SHARPNESS = 2  
 
     for name in model_names:
-        # Scor neutru 3.0 pentru modelele inca neevaluate
+        # Scor neutru 3.0 pentru modelele neevaluate
         score = current_fitness.get(name, 3.0)
         roulette_weights.append(score ** SHARPNESS)
 
@@ -192,7 +186,7 @@ def create_new_vectorstore():
     client = get_chroma_client()
     try:
         client.delete_collection(COLLECTION_NAME)
-        print(">> [RAG] Memoria veche a fost golita curat din baza de date.")
+        print(">> [RAG] Old memory cleared successfully from the database.")
     except Exception:
         # Prima rulare sau colectie inexistenta
         pass
@@ -212,7 +206,6 @@ def reindex_ai_knowledge():
     print(">> Start Re-indexing...")
     
     with _rag_lock: 
-        # Eliberare lock-ul din RAM inainte de a sterge datele
         if vectorstore is not None:
             vectorstore = None
             
@@ -223,34 +216,32 @@ def reindex_ai_knowledge():
 def get_ai_response(user_message: str):
     global vectorstore
     
-    # Pattern Double-Checked Locking pentru stabilitate sub stress 
+    # Pattern Double-Checked Locking
     if vectorstore is None:
-        with _rag_lock: # Blocare celelalte thread-uri pana cand se termina incarcarea
+        with _rag_lock: 
             if vectorstore is None: 
                 client = get_chroma_client()
-                # Verificare daca exista deja o colectie cu date pe disc
                 existing_collections = [c.name for c in client.list_collections()]
                 if COLLECTION_NAME in existing_collections:
-                    print(">> [RAG] Incarcam memoria AI direct de pe disc (foarte rapid)...")
+                    print(">> [RAG] Loading AI memory directly from disk...")
                     vectorstore = Chroma(
                         client=client,
                         embedding_function=get_embeddings(),
                         collection_name=COLLECTION_NAME,
                     )
                 else:
-                    print(">> [RAG] Memoria lipseste. Se porneste re-indexarea automata...")
+                    print(">> [RAG] Memory missing. Starting automatic re-indexing...")
                     vectorstore = create_new_vectorstore()
 
     mesaj_procesat = corecteaza_vocabular_student(user_message)
     if mesaj_procesat != user_message.lower():
-        print(f"\n>> [!] Input original: {user_message}")
-        print(f">> [!] Input tradus semantic: {mesaj_procesat}")
+        print(f"\n>> [!] Original input: {user_message}")
+        print(f">> [!] Semantically translated input: {mesaj_procesat}")
 
     winning_model_name, llm = get_roulette_wheel_llm()
     print(f">> Processing question with model: {winning_model_name}")
 
     retriever = vectorstore.as_retriever(search_kwargs={"k": 12})
-
 
 
     system_prompt = (
@@ -284,15 +275,15 @@ def get_ai_response(user_message: str):
         return answer, winning_model_name
         
     except Exception as e:
-        print(f"\n>> [!] EROARE LA MODELUL {winning_model_name}: {e}")
+        print(f"\n>> [!] ERROR ON MODEL {winning_model_name}: {e}")
         
         if "Llama" in winning_model_name:
-            print(">> [!] INITIEZ FALLBACK SILENTIOS catre Gemini 3.5 Flash...\n")
+            print(">> [!] INITIATING SILENT FALLBACK to Gemini 3.5 Flash...\n")
             fallback_name = "Gemini 3.5 Flash [FALLBACK]"
             fallback_llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", temperature=0.3)
             
         else:
-            print(">> [!] INITIEZ FALLBACK SILENTIOS catre Llama 3.1 (8B)...\n")
+            print(">> [!] INITIATING SILENT FALLBACK to Llama 3.1 (8B)...\n")
             fallback_name = "Llama 3.1 (8B) [FALLBACK]"
             fallback_llm = ChatGroq(model_name="llama-3.1-8b-instant", temperature=0.3)
         

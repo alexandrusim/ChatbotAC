@@ -15,7 +15,6 @@ from rag_engine import get_ai_response, reindex_ai_knowledge
 
 router = APIRouter()
 
-# CONFIGURARE JWT (SECURITATE)
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 if not SECRET_KEY:
     raise ValueError("EROARE CRITICA: JWT_SECRET_KEY lipseste din fisierul .env!")
@@ -29,7 +28,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 120 # Tokenul expira in 2 ore
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 def get_current_admin(token: str = Depends(oauth2_scheme)):
-    """Functie care verifica daca user-ul are un token valid pentru a accesa API-urile de admin."""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
@@ -86,7 +84,7 @@ class FeedbackRequest(BaseModel):
 class TextRequest(BaseModel):
     content: str
 
-# ENDPOINT-URI PENTRU CHAT PUBLIC (Accesibile de catre oricine)
+# ENDPOINT-URI CHAT PUBLIC 
 
 @router.get("/")
 def read_root():
@@ -112,7 +110,7 @@ def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
         db.refresh(log) 
         return {"answer": rule_response, "source": "rule-based", "conversation_id": log.id} 
     
-    # 2. Rutare Inteligenta Artificiala (RAG)
+    # 2. Rutare RAG
     try:
         ai_answer, nume_model = get_ai_response(user_message)
         sursa_exacta = f"ai-rag ({nume_model})"
@@ -141,7 +139,7 @@ def submit_feedback(conversation_id: int, feedback: FeedbackRequest, db: Session
     return {"message": "Feedback salvat cu succes!", "rating": feedback.rating}
 
 
-# ENDPOINT-URI PENTRU DASHBOARD (PROTEJATE DE JWT)
+# ENDPOINT-URI DASHBOARD
 
 @router.get("/dashboard")
 def serve_dashboard():
@@ -187,7 +185,7 @@ def delete_rule(rule_id: int, db: Session = Depends(get_db), admin: str = Depend
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Regula nu a fost gasita.")
 
-# GESTIUNE SURSE WEB (LINK-URI)
+# GESTIUNE SURSE WEB
 @router.get("/api/weblinks")
 def get_weblinks(db: Session = Depends(get_db), admin: str = Depends(get_current_admin)):
     links = db.query(models.Weblink).all()
@@ -213,7 +211,7 @@ def delete_weblink(link_id: int, db: Session = Depends(get_db), admin: str = Dep
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Link-ul nu a fost gasit.")
 
-# GESTIUNE PARAGRAFE TEXT (MANUALE)
+# GESTIUNE PARAGRAFE TEXT
 @router.get("/api/texts")
 def get_texts(db: Session = Depends(get_db), admin: str = Depends(get_current_admin)):
     texts = db.query(models.TextSnippet).all()

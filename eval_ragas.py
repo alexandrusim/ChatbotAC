@@ -90,7 +90,7 @@ async def main_evaluation():
         google_api_key=os.getenv("GOOGLE_API_KEY")
     )
 
-    # ARBITRU (JUDGE): model Llama 3.3 70B via Groq
+    # ARBITRU: model Llama 3.3 70B via Groq
 
     openai_client = AsyncOpenAI(
         base_url="https://api.groq.com/openai/v1",

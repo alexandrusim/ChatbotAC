@@ -22,7 +22,7 @@ complex_queries = [
 def run_benchmark():
     print("Incepere Benchmark (Testare Latenta & Eficienta)...\n")
     
-    # 1. Testare Ruta Determinista (Rule-Based)
+    # 1. Testare Ruta Determinista 
     print("--- Testare intrebari Standard (Rule-Based) ---")
     standard_times = []
     for query in standard_queries:
@@ -40,8 +40,8 @@ def run_benchmark():
             
         time.sleep(3)
             
-    # 2. Testare Ruta Probabilistica (RAG + LLM)
-    print("\n--- Testare intrebari Complexe (RAG + LLM) ---")
+    # 2. Testare Ruta Probabilistica 
+    print("\n--- Testare intrebari Complexe  ---")
     complex_times = []
     for query in complex_queries:
         start_time = time.time()
